@@ -149,39 +149,6 @@ button, input, select { font: inherit; color: inherit; }
   background: var(--fond-page);
   border-bottom: 1px solid var(--trait);
 }
-.puces { min-width: 0; margin: 0; padding: 0; border: 0; }
-.puces-liste { display: flex; flex-wrap: wrap; gap: 8px; }
-.puce {  /* sigle et nombre ; le nom complet en infobulle, la légende sous les actions */
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 12px 0 6px;
-  border: 1px solid var(--trait-fort);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--encre-3);
-  font-size: 14px;
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.puce .code {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 26px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--trait);
-  color: var(--encre-2);
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.puce .compte { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--encre-3); }
-.puce[aria-pressed="true"] { background: var(--surface); border-color: var(--encre); color: var(--encre); }
-.puce[aria-pressed="true"] .code { background: var(--t); color: var(--sur-t); }
 .filtre-rayon { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--encre-2); }
 .filtre-rayon .segmente button { padding: 0 12px; font-family: var(--mono); font-size: 13px; font-weight: 400; }
 .depuis { font-size: 14px; color: var(--encre-2); }
@@ -210,10 +177,50 @@ button, input, select { font: inherit; color: inherit; }
 .tuile .libelle { display: block; font-size: .78rem; color: var(--encre-2); line-height: 1.3; margin-top: 2px; }
 .precision-chiffres { font-size: .8rem; color: var(--encre-3); margin-top: 4px; }
 
-/* Légende des sigles, sous les actions */
-#vue .sigles { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 0 0; font-size: 13px; color: var(--encre-2); }
+/* Légende des sigles : à l'écran, elle sert aussi de filtre des types (un clic masque ou réaffiche) */
+.sigles { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 10px 0 0; font-size: 13px; color: var(--encre-2); }
 .sigles > span { display: inline-flex; align-items: center; gap: 6px; }
-.sigles .badge { min-width: 28px; height: 20px; padding: 0 5px; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.sigles .badge { min-width: 30px; height: 22px; padding: 0 6px; font-size: 11.5px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.sigle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 6px 3px 0; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
+.sigle:hover .nom { text-decoration: underline; }
+.sigle[aria-pressed="false"] .badge { background: var(--trait); color: var(--encre-3); }
+.sigle[aria-pressed="false"] .nom { color: var(--encre-3); text-decoration: line-through; }
+
+/* Menu « Éditer un rapport » : PDF, tableau CSV, lien */
+.menu-rapport { position: relative; margin: 14px 0 2px; }
+.menu-rapport summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--encre);
+  color: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+.menu-rapport summary::-webkit-details-marker { display: none; }
+.menu-rapport summary::after { content: ""; width: 7px; height: 7px; margin-top: -4px; border: solid currentColor; border-width: 0 1.8px 1.8px 0; transform: rotate(45deg); }
+.menu-rapport[open] summary::after { margin-top: 3px; transform: rotate(-135deg); }
+.menu-rapport .menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 280px;
+  padding: 6px;
+  border: 1px solid var(--trait-fort);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(29, 33, 37, .14);
+}
+.menu-rapport .menu button { padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; text-align: left; font-size: 14px; cursor: pointer; }
+.menu-rapport .menu button:hover { background: var(--surface-2); }
 
 /* Actions : impression, tableau, lien */
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 8px; }
@@ -234,7 +241,6 @@ button, input, select { font: inherit; color: inherit; }
 .resume .retour { margin-bottom: 6px; }
 .resume .surtitre { text-align: left; }
 .synthese { margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; font-weight: 600; letter-spacing: -.02em; }
-.ligne-synthese { font-size: 16px; color: var(--encre-2); }
 .bloc { margin-top: 32px; }
 #vue .bloc h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: -.01em; }
 .tri-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--trait); }
@@ -437,8 +443,6 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
   .vue-split .carte { position: absolute; left: -10000px; top: 0; width: 960px; height: 640px; visibility: hidden; }
   .colonne-liste { overflow: visible; }
   .filtres { gap: 8px 16px; padding: 10px 16px; }
-  .puces { width: 100%; }
-  .puces-liste { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .maj { display: none; }
   .fiche, .vue-carte .fiche, .vue-liste .fiche { position: fixed; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 70dvh; }
   .legende { gap: 4px; padding: 8px 10px; font-size: 11.5px; }

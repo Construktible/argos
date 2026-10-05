@@ -21,7 +21,7 @@ const SURLIGNAGE = "#ffe600";  // autorisation sélectionnée dans la liste
 const TYPES = {PC: "permis de construire", DP: "déclaration préalable", PA: "permis d'aménager", PD: "permis de démolir"};
 const TYPES_PLURIEL = {PC: "permis de construire", DP: "déclarations préalables", PA: "permis d'aménager", PD: "permis de démolir"};
 const ORDRE_TYPES = ["PC", "DP", "PD", "PA"];  // puces et légende des sigles, du plus fréquent au plus rare
-const PRECISIONS = {DP: "pour les petits travaux", PA: "pour un lotissement"};  // ce que le nom officiel ne dit pas
+const PRECISIONS = {DP: "petits travaux", PA: "lotissement"};  // ce que le nom officiel ne dit pas
 const TRANSPARENT = "rgba(0,0,0,0)";
 const PETIT_ECRAN = matchMedia("(max-width: 820px)");
 
@@ -189,10 +189,12 @@ function rechercher(lon0, lat0, rayon) {
 
 /* ---------- Rendu de la liste ---------- */
 
-const nomComplet = t => `${TYPES[t][0].toUpperCase()}${TYPES[t].slice(1)}${PRECISIONS[t] ? `, ${PRECISIONS[t]}` : ""}`;
-
-function legendeSigles() {  // ce que veulent dire PC, DP, PD, PA, une fois, là où on les lit
-  return `<p class="sigles">${ORDRE_TYPES.map(t => `<span><span class="badge" data-type="${t}">${t}</span> ${esc(TYPES[t])}${PRECISIONS[t] ? `, ${PRECISIONS[t]}` : ""}</span>`).join("")}</p>`;
+function legendeSigles(filtre = true) {  // ce que veulent dire PC, DP, PD, PA ; à l'écran, un clic masque ou réaffiche le type
+  const nom = t => `${esc(TYPES[t])}${PRECISIONS[t] ? ` (${PRECISIONS[t]})` : ""}`;
+  if (!filtre) return `<p class="sigles">${ORDRE_TYPES.map(t => `<span><span class="badge" data-type="${t}">${t}</span> ${nom(t)}</span>`).join("")}</p>`;
+  return `<div class="sigles" role="group" aria-label="Types d'autorisation affichés">${ORDRE_TYPES.map(t => `
+    <button type="button" class="sigle" data-type="${t}" aria-pressed="${etat.types.has(t)}" title="Afficher ou masquer : ${esc(TYPES[t])}">
+      <span class="badge" data-type="${t}">${t}</span><span class="nom">${nom(t)}</span></button>`).join("")}</div>`;
 }
 
 function tuile(valeur, libelle) {
@@ -437,6 +439,7 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
     parcelle: "Centre de la parcelle."}[v.precision] || "Position approximative.";
   const localisation = `${precision}${res.rapproche ? ` Point de l'adresse à ${nombre.format(Math.round(res.rapproche))} m de la parcelle la plus proche, sur la voie.` : ""}`;
   const filtres = `Depuis ${etat.depuis}${etat.types.size < 4 ? `, ${[...etat.types].join(", ")} seulement` : ""}. Logements et surfaces hors autorisations annulées.`;
+  const approximative = !["housenumber", "parcelle"].includes(v.precision) ? `<p class="alerte">${precision} Les distances sont indicatives.</p>` : "";
   const horsCommune = v.commune && v.commune !== INSEE
     ? `<p class="alerte">Adresse hors de ${esc(meta.commune)} : seules les autorisations de ${esc(meta.commune)} sont prises en compte.</p>` : "";
   const titreParcelle = `Sur la parcelle${parcellesAuPoint.length > 1 ? "s" : ""} ${parcellesAuPoint.join(", ")}${anciennesAuPoint.length
@@ -457,18 +460,19 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
       <button class="retour" data-action="commune">← Toute la commune</button>
       <p class="surtitre">${esc(autourDe(v))}</p>
       <h1 class="synthese">${enRayon.length ? pluriel(enRayon.length, "autorisation") : "Aucune autorisation"} à moins de ${etat.rayon} m</h1>
-      <p class="ligne-synthese">${pluriel(logements, "logement créé", "logements créés")} · ${nombre.format(surface)} m² de surface de plancher créés</p>
-      <p class="note">${localisation} ${filtres}</p>
-      ${horsCommune}
-      <div class="actions">
-        <button class="action" data-action="imprimer">Imprimer ou enregistrer en PDF</button>
-        <button class="action" data-action="csv">Télécharger le tableau (CSV)</button>
-        <button class="action" data-action="lien">Copier le lien</button>
-      </div>
+      ${approximative}${horsCommune}
+      <details class="menu-rapport">
+        <summary>Éditer un rapport</summary>
+        <div class="menu">
+          <button type="button" data-action="imprimer">PDF : imprimer ou enregistrer</button>
+          <button type="button" data-action="csv">Tableau des autorisations (CSV)</button>
+          <button type="button" data-action="lien">Copier le lien de cette page</button>
+        </div>
+      </details>
       ${legendeSigles()}
     </div>
     <section class="bloc">
-      <h2>${titreParcelle}</h2>
+      <h2>${esc(v.libelle)}</h2>
       ${!res.auPoint.length ? `<p class="vide">Aucune parcelle à moins de ${TOLERANCE_VOIE} m de ce point.</p>`
         : surParcelle.length ? lignes(surParcelle) : `<p class="vide">Aucune autorisation sur cette parcelle avec les filtres actuels.</p>`}
     </section>
@@ -498,7 +502,7 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
       ${tuile(nombre.format(surface), "m² de surface de plancher créés")}
     </div>
     <p class="precision-chiffres">${filtres}</p>
-    ${legendeSigles()}
+    ${legendeSigles(false)}
     <img class="impression-seule" id="carte-impression" alt="Carte : adresse recherchée et rayon de ${etat.rayon} m">
     <h3>${titreParcelle}</h3>
     ${res.auPoint.length ? listeDossiers(surParcelle) : `<p class="vide">Aucune parcelle à moins de ${TOLERANCE_VOIE} m de ce point.</p>`}
@@ -524,14 +528,8 @@ function rendre() {
 
 /* ---------- Barre de filtres : types (avec leur nombre dans la vue), rayon, période ---------- */
 
-function rendreFiltres() {
-  const v = etat.vue, res = etat.resultat;
-  const base = res ? [...res.dansRayonTous.keys()].map(id => parId.get(id))
-    : v.mode === "parcelle" ? (parParcelle.get(v.id) || []).filter(dansPeriode) : dossiers.filter(dansPeriode);
-  document.getElementById("filtre-types").innerHTML = ORDRE_TYPES.map(t => `
-    <button type="button" class="puce" data-type="${t}" aria-pressed="${etat.types.has(t)}" title="${esc(nomComplet(t))}">
-      <span class="code">${t}</span><span class="sr">${esc(TYPES[t])}</span><span class="compte">${nombre.format(base.filter(d => d.type === t).length)}</span>
-    </button>`).join("");
+function rendreFiltres() {  // les types se choisissent dans la légende des sigles, en tête de la liste
+  const res = etat.resultat;
   document.getElementById("filtre-rayon").hidden = !res;
   document.getElementById("rayons").innerHTML = RAYONS.map(r =>
     `<button type="button" data-rayon="${r}" aria-pressed="${r === etat.rayon}">${r} m</button>`).join("");
@@ -544,13 +542,7 @@ function initFiltres() {
   etat.depuis = Number(meta.premiere_annee);
   choix.addEventListener("change", () => { etat.depuis = Number(choix.value); rendre(); });
   document.getElementById("filtres").addEventListener("click", e => {
-    const puce = e.target.closest(".puce"), rayon = e.target.closest("[data-rayon]");
-    if (puce) {
-      const t = puce.dataset.type;
-      if (etat.types.has(t) && etat.types.size === 1) return;  // au moins un type
-      etat.types.has(t) ? etat.types.delete(t) : etat.types.add(t);
-      rendre();
-    }
+    const rayon = e.target.closest("[data-rayon]");
     if (rayon) {
       etat.rayon = Number(rayon.dataset.rayon);
       const v = etat.vue;
@@ -945,6 +937,14 @@ function initActions() {
     if (cartePrete && etat.survol) { etat.survol = null; appliquerSurlignage(); }
   });
   vue.addEventListener("click", async e => {
+    const sigle = e.target.closest(".sigle");
+    if (sigle) {
+      const t = sigle.dataset.type;
+      if (etat.types.has(t) && etat.types.size === 1) return;  // au moins un type
+      etat.types.has(t) ? etat.types.delete(t) : etat.types.add(t);
+      rendre();
+      return;
+    }
     const ligne = e.target.closest(".ligne-dossier");
     if (ligne) { selectionner(ligne.dataset.id); return; }
     const resume = e.target.closest(".dossier summary");  // vue parcelle : la ligne se déplie et sa parcelle passe en jaune
@@ -963,12 +963,16 @@ function initActions() {
       const id = etat.vue.id, [lon, lat] = centroide(toutes.get(id).geom);
       rapportAutourDe(lon, lat, `Parcelle ${nomParcelle(id)}`, "parcelle", INSEE);
     }
+    if (action === "csv" || action === "imprimer") b.closest("details")?.removeAttribute("open");
     if (action === "csv") exporterCsv();
     if (action === "imprimer") imprimer();
     if (action === "lien") {
       try { await navigator.clipboard.writeText(location.href); b.textContent = "Lien copié"; }
       catch { b.textContent = "Copie impossible : utilisez la barre d'adresse"; }
     }
+  });
+  document.addEventListener("click", e => {  // le menu « Éditer un rapport » se ferme quand on clique ailleurs
+    document.querySelectorAll(".menu-rapport[open]").forEach(m => { if (!m.contains(e.target)) m.removeAttribute("open"); });
   });
   document.getElementById("fiche").addEventListener("click", e => {
     const action = e.target.closest("button")?.dataset.action;
