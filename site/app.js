@@ -40,6 +40,7 @@ let cartePrete = false;  // nos couches ajoutées ; isStyleLoaded() reste faux t
 const nombre = new Intl.NumberFormat("fr-FR");
 const formatDate = new Intl.DateTimeFormat("fr-FR", {day: "numeric", month: "short", year: "numeric"});
 const formatMois = new Intl.DateTimeFormat("fr-FR", {month: "long", year: "numeric"});
+const formatMoisCourt = new Intl.DateTimeFormat("fr-FR", {month: "short", year: "numeric"});
 const dateFr = s => s ? formatDate.format(new Date(`${s}T12:00:00`)) : "";
 const moisFr = s => s ? formatMois.format(new Date(`${s.slice(0, 7)}-15T12:00:00`)) : "";  // "2026-09" -> "septembre 2026"
 const milliers = s => s >= 10000 ? `${nombre.format(Math.round(s / 1000))} 000` : nombre.format(s);
@@ -56,13 +57,12 @@ const visible = d => etat.types.has(d.type) && dansPeriode(d);
 const projet = d => d.objet || d.nature_projet || "";  // objet en clair, écrit par scripts/04_dossiers.py
 const surfaceCreee = d => Number(d.surf_habitation_creee || 0) + Number(d.surf_non_residentielle_creee || 0);
 const surfaceDemolie = d => Number(d.surf_habitation_demolie || 0) + Number(d.surf_non_residentielle_demolie || 0);
-const ampleur = d => Math.max(surfaceCreee(d), surfaceDemolie(d));
-
-const TRIS = {  // liste du rayon ; l'impression et le CSV restent groupés par adresse
-  ampleur: {libelle: "Ampleur", aide: "Les plus grandes surfaces d'abord.",
-    ordre: (a, b) => ampleur(b) - ampleur(a) || Number(b.nb_logements_crees || 0) - Number(a.nb_logements_crees || 0) || parDateDesc(a, b)},
+const TRIS = {  // liste du rayon ; la valeur à droite de chaque ligne suit le tri ; l'impression et le CSV restent groupés par adresse
+  ampleur: {libelle: "Ampleur", aide: "Les plus grandes surfaces créées d'abord.",
+    ordre: (a, b) => surfaceCreee(b) - surfaceCreee(a) || surfaceDemolie(b) - surfaceDemolie(a)
+      || Number(b.nb_logements_crees || 0) - Number(a.nb_logements_crees || 0) || parDateDesc(a, b)},
   distance: {libelle: "Distance", aide: "Les plus proches d'abord, regroupées par adresse."},
-  date: {libelle: "Date", aide: "Les décisions les plus récentes d'abord.", ordre: parDateDesc},
+  date: {libelle: "Date", aide: "Les décisions les plus récentes d'abord, par année.", ordre: parDateDesc},
 };
 
 function totaux(liste) {
@@ -276,8 +276,10 @@ function chiffresDossier(d, court = false) {  // « 114 logements créés · 8 4
     creee > 0 && `${nombre.format(creee)} m² créés`, demolie > 0 && `${nombre.format(demolie)} m² démolis`].filter(Boolean).join(" · ");
 }
 
-function decisionDossier(d) {  // « autorisé le 3 oct. 2019 · terminé »
-  const decision = d.date_autorisation ? `${d.type === "DP" ? "non-opposition le" : "autorisé le"} ${dateFr(d.date_autorisation)}` : "";
+function decisionDossier(d, courte = false) {  // « autorisé le 3 oct. 2019 · terminé » ; en court : « oct. 2019 · terminé »
+  const date = d.date_autorisation && new Date(`${d.date_autorisation}T12:00:00`);
+  const decision = !date ? "" : courte ? formatMoisCourt.format(date)
+    : `${d.type === "DP" ? "non-opposition le" : "autorisé le"} ${dateFr(d.date_autorisation)}`;
   return [decision, d.etat !== "autorisé" && d.etat].filter(Boolean).join(" · ");
 }
 
@@ -287,14 +289,28 @@ function registreDossier(d) {  // n° de dossier et parcelles actuelles
   return `<span>${esc(numeroDossier(d))}</span>${parcelles ? `<span>${esc(parcelles)}</span>` : ""}`;
 }
 
+function valeursADroite(d, distance) {  // [ligne 1, ligne 2] à droite de la ligne : la grandeur du tri en cours
+  if (etat.tri === "date") return [annee(d.date_autorisation), ""];
+  if (etat.tri === "ampleur") {
+    const creee = surfaceCreee(d), demolie = surfaceDemolie(d), logements = Number(d.nb_logements_crees || 0);
+    return [creee > 0 ? `${nombre.format(creee)} m²` : demolie > 0 ? `−${nombre.format(demolie)} m²` : "–",
+      logements > 0 ? pluriel(logements, "logement") : ""];
+  }
+  return [distance === null ? "" : `${d.localisation === "voie" ? "≈ " : ""}${nombre.format(Math.round(distance))} m`, ""];
+}
+
 function htmlLigneDossier(d, distance = null, sansAdresse = false) {
-  const chiffres = chiffresDossier(d, true);
-  const ligne2 = [!sansAdresse && adresseLisible(d.adresse || "Adresse non renseignée"), decisionDossier(d)].filter(Boolean).join(" · ");
+  const [droite1, droite2] = valeursADroite(d, distance);
+  const chiffres = etat.tri !== "ampleur" ? chiffresDossier(d, true)  // en tri par ampleur, surface et logements sont déjà à droite
+    : surfaceCreee(d) > 0 && surfaceDemolie(d) > 0 ? `${nombre.format(surfaceDemolie(d))} m² démolis` : "";
+  const ligne2 = [!sansAdresse && adresseLisible(d.adresse || "Adresse non renseignée"), decisionDossier(d, true)].filter(Boolean).join(" · ");
+  const titreDroite = etat.tri === "ampleur" && surfaceCreee(d) === 0 && surfaceDemolie(d) > 0 ? ` title="Surface démolie"` : "";
   return `<li><button type="button" class="ligne-dossier${d.etat === "annulé" ? " annule" : ""}" data-id="${esc(d.id)}" aria-pressed="${d.id === etat.surligne}">
     <span class="badge" data-type="${d.type}" title="${esc(TYPES[d.type])}">${d.type}</span>
     <span class="l1"><span class="titre-dossier">${esc(projet(d).split(" · ")[0] || TYPES[d.type])}</span>${chiffres ? `<span class="detail"> · ${esc(chiffres)}</span>` : ""}</span>
-    <span class="distance">${distance === null ? "" : `${d.localisation === "voie" ? "≈ " : ""}${nombre.format(Math.round(distance))} m`}</span>
+    <span class="droite"${titreDroite}>${esc(droite1)}</span>
     <span class="l2">${esc(ligne2)}</span>
+    <span class="droite-2">${esc(droite2)}</span>
   </button></li>`;
 }
 
