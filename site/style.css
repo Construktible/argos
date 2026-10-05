@@ -238,34 +238,54 @@ button, input, select { font: inherit; color: inherit; }
 .tri .aide { margin-right: 6px; }
 .vide-bloc { padding: 24px; border: 1px dashed var(--trait-fort); border-radius: 14px; font-size: 15px; line-height: 1.5; color: var(--encre-2); }
 .pied-rapport { margin-top: 32px !important; }
-.grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
-.carte-dossier {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
+/* Liste compacte : une ligne par dossier, sur deux lignes de texte */
+.liste-dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--trait); }
+.ligne-dossier {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 2px 12px;
   width: 100%;
-  padding: 16px 18px;
-  border: 1px solid var(--trait);
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: 0 1px 2px rgba(29, 33, 37, .06);
+  padding: 9px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--trait);
+  background: transparent;
   text-align: left;
   cursor: pointer;
   scroll-margin: 16px;
 }
-.carte-dossier:hover { border-color: var(--trait-fort); }
-.carte-dossier.pointee { border-color: var(--encre); background: var(--surface-2); }  /* parcelle survolée sur la carte */
-.carte-dossier[aria-pressed="true"] { border-color: var(--encre); box-shadow: 0 0 0 2px var(--encre); }
-.carte-dossier > span { display: block; }
-.carte-dossier .haut, .fiche-haut { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.carte-dossier .badge, .fiche .badge { min-width: 38px; height: 26px; font-size: 12px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-.carte-dossier .distance, .fiche .distance { font-family: var(--mono); font-size: 13px; color: var(--encre-2); }
-.titre-dossier { font-size: 17px; font-weight: 600; line-height: 1.25; }
-.carte-dossier .detail, .fiche .detail { font-size: 14px; line-height: 1.4; color: var(--encre-2); }
-.carte-dossier .adresse, .fiche .adresse { font-size: 14px; line-height: 1.4; }
-.carte-dossier .quand, .fiche .quand { font-size: 13px; color: var(--encre-3); }
-.carte-dossier .registre, .fiche .registre {
+.ligne-dossier:hover { background: var(--surface-2); }
+.ligne-dossier.pointee { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--encre); }  /* parcelle survolée sur la carte */
+.ligne-dossier[aria-pressed="true"] { background: var(--surface-2); box-shadow: inset 4px 0 0 var(--surlignage); }  /* jaune, comme sur la carte */
+.ligne-dossier .badge { grid-row: 1 / 3; align-self: start; min-width: 32px; height: 22px; margin-top: 1px; font-size: 11px; }
+.ligne-dossier .l1 { font-size: 15px; line-height: 1.35; }
+.ligne-dossier .titre-dossier { font-weight: 600; }
+.ligne-dossier .detail { color: var(--encre-2); }
+.ligne-dossier .distance { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--encre-2); white-space: nowrap; text-align: right; }
+.ligne-dossier .l2 { grid-column: 2 / 4; font-size: 13px; line-height: 1.35; color: var(--encre-3); }
+.ligne-dossier.annule .titre-dossier, .ligne-dossier.annule .detail { text-decoration: line-through; color: var(--encre-3); }
+.groupe-adresse { margin-top: 18px; }
+.groupe-adresse:first-of-type { margin-top: 0; }
+#vue .groupe-adresse h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 0;
+  font-size: 14px;
+}
+.groupe-adresse h3 .distance { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--encre-2); white-space: nowrap; }
+.version-imprimable { display: none; }
+
+/* Contenu de la fiche */
+.fiche-haut { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fiche .badge { min-width: 38px; height: 26px; font-size: 12px; }
+.fiche .distance { font-family: var(--mono); font-size: 13px; color: var(--encre-2); }
+.fiche .titre-dossier { font-size: 17px; font-weight: 600; line-height: 1.25; }
+.fiche .titre-dossier.annule { text-decoration: line-through; color: var(--encre-3); }
+.fiche .detail { font-size: 14px; line-height: 1.4; color: var(--encre-2); }
+.fiche .adresse { font-size: 14px; line-height: 1.4; }
+.fiche .quand { font-size: 13px; color: var(--encre-3); }
+.fiche .registre {
   display: flex;
   flex-wrap: wrap;
   gap: 2px 12px;
@@ -275,21 +295,6 @@ button, input, select { font: inherit; color: inherit; }
   font-size: 12px;
   color: var(--encre-3);
 }
-.carte-dossier.annule .titre-dossier, .carte-dossier.annule .detail, .fiche .titre-dossier.annule { text-decoration: line-through; color: var(--encre-3); }
-.groupe-adresse { margin-top: 20px; }
-.groupe-adresse:first-of-type { margin-top: 0; }
-#vue .groupe-adresse h3 {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--trait-fort);
-  font-size: 15px;
-}
-.groupe-adresse h3 .distance { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--encre-2); white-space: nowrap; }
-.groupe-adresse .carte-dossier .adresse { display: none; }
-.version-imprimable { display: none; }
 
 /* Fiche du dossier sélectionné : sur la carte, ou flottante quand la carte est masquée */
 .fiche {

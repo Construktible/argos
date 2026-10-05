@@ -244,8 +244,8 @@ function grouperParAdresse(liste, distances) {  // [adresse, dossiers récents d
     .sort((a, b) => a[2] - b[2]);
 }
 
-function enteteGroupe(adresse, ds, proche) {
-  return `<span>${esc(adresse)}</span><span class="distance">${ds.some(d => d.localisation === "voie") ? "≈ " : ""}${nombre.format(Math.round(proche))} m · ${pluriel(ds.length, "autorisation")}</span>`;
+function enteteGroupe(adresse, ds, proche, lisible = false) {
+  return `<span>${esc(lisible ? adresseLisible(adresse) : adresse)}</span><span class="distance">${ds.some(d => d.localisation === "voie") ? "≈ " : ""}${nombre.format(Math.round(proche))} m · ${pluriel(ds.length, "autorisation")}</span>`;
 }
 
 function parAdresse(liste, distances) {  // version imprimable
@@ -254,17 +254,31 @@ function parAdresse(liste, distances) {  // version imprimable
     <section class="groupe"><h4>${enteteGroupe(adresse, ds, proche)}</h4>${listeDossiers(ds)}</section>`).join("");
 }
 
-/* Carte de dossier (rapport) : un bouton ; la sélection surligne ses parcelles et ouvre la fiche */
+/* Liste compacte du rapport : une ligne par dossier ; la sélection surligne ses parcelles et ouvre la fiche */
 
-function chiffresDossier(d) {
+const MOTS_MINUSCULES = new Set(["de", "du", "des", "la", "le", "les", "et", "à", "au", "aux", "sur", "sous", "en",
+  "rue", "avenue", "av", "boulevard", "bd", "place", "allée", "allee", "impasse", "chemin", "passage", "sentier", "sente",
+  "villa", "cité", "cite", "square", "quai", "cours", "cour", "route", "voie", "ruelle", "hameau", "résidence", "residence", "parvis"]);
+
+function adresseLisible(a) {  // SITADEL écrit en capitales : « 66 RUE DE LAGNY » -> « 66 rue de Lagny »
+  if (!a || a !== a.toUpperCase()) return a || "";
+  const s = a.toLowerCase().split(/\s+/).map(m => MOTS_MINUSCULES.has(m) ? m : m.replace(/\p{L}+/gu, (lettres, i) => {
+    if (/\d/.test(m[i - 1] || "")) return lettres;                          // 27bis
+    if (/^[ld]$/.test(lettres) && /['’]/.test(m[i + 1] || "")) return lettres;  // élision : l', d'
+    return lettres[0].toUpperCase() + lettres.slice(1);
+  })).join(" ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function chiffresDossier(d, court = false) {  // « 114 logements créés · 8 476 m² créés » ; en court : « 114 logements · … »
   const logements = Number(d.nb_logements_crees || 0), creee = surfaceCreee(d), demolie = surfaceDemolie(d);
-  return [logements > 0 && pluriel(logements, "logement créé", "logements créés"),
+  return [logements > 0 && (court ? pluriel(logements, "logement") : pluriel(logements, "logement créé", "logements créés")),
     creee > 0 && `${nombre.format(creee)} m² créés`, demolie > 0 && `${nombre.format(demolie)} m² démolis`].filter(Boolean).join(" · ");
 }
 
-function quandDossier(d) {  // « Autorisé le 27 mai 2025 · commencé · CAMPUS 3M »
-  const decision = d.date_autorisation ? `${d.type === "DP" ? "Non-opposition le" : "Autorisé le"} ${dateFr(d.date_autorisation)}` : "";
-  return [decision, d.etat !== "autorisé" && d.etat, d.demandeur].filter(Boolean).join(" · ");
+function decisionDossier(d) {  // « autorisé le 3 oct. 2019 · terminé »
+  const decision = d.date_autorisation ? `${d.type === "DP" ? "non-opposition le" : "autorisé le"} ${dateFr(d.date_autorisation)}` : "";
+  return [decision, d.etat !== "autorisé" && d.etat].filter(Boolean).join(" · ");
 }
 
 function registreDossier(d) {  // n° de dossier et parcelles actuelles
@@ -273,25 +287,24 @@ function registreDossier(d) {  // n° de dossier et parcelles actuelles
   return `<span>${esc(numeroDossier(d))}</span>${parcelles ? `<span>${esc(parcelles)}</span>` : ""}`;
 }
 
-function htmlCarteDossier(d, distance = null) {
-  const approx = d.localisation === "voie" ? "≈ " : "", chiffres = chiffresDossier(d);
-  return `<button type="button" class="carte-dossier${d.etat === "annulé" ? " annule" : ""}" data-id="${esc(d.id)}" aria-pressed="${d.id === etat.surligne}">
-    <span class="haut"><span class="badge" data-type="${d.type}" title="${esc(TYPES[d.type])}">${d.type}</span>${distance === null ? ""
-      : `<span class="distance">${approx}${nombre.format(Math.round(distance))} m</span>`}</span>
-    <span class="titre-dossier">${esc(projet(d).split(" · ")[0] || TYPES[d.type])}</span>
-    ${chiffres ? `<span class="detail">${esc(chiffres)}</span>` : ""}
-    <span class="adresse">${esc(d.adresse || "Adresse non renseignée")}</span>
-    <span class="quand">${esc(quandDossier(d))}</span>
-    <span class="registre">${registreDossier(d)}</span>
-  </button>`;
+function htmlLigneDossier(d, distance = null, sansAdresse = false) {
+  const chiffres = chiffresDossier(d, true);
+  const ligne2 = [!sansAdresse && adresseLisible(d.adresse || "Adresse non renseignée"), decisionDossier(d)].filter(Boolean).join(" · ");
+  return `<li><button type="button" class="ligne-dossier${d.etat === "annulé" ? " annule" : ""}" data-id="${esc(d.id)}" aria-pressed="${d.id === etat.surligne}">
+    <span class="badge" data-type="${d.type}" title="${esc(TYPES[d.type])}">${d.type}</span>
+    <span class="l1"><span class="titre-dossier">${esc(projet(d).split(" · ")[0] || TYPES[d.type])}</span>${chiffres ? `<span class="detail"> · ${esc(chiffres)}</span>` : ""}</span>
+    <span class="distance">${distance === null ? "" : `${d.localisation === "voie" ? "≈ " : ""}${nombre.format(Math.round(distance))} m`}</span>
+    <span class="l2">${esc(ligne2)}</span>
+  </button></li>`;
 }
 
-function grille(liste, distance = () => null) {
-  return `<div class="grille">${liste.map(d => htmlCarteDossier(d, distance(d))).join("")}</div>`;
+function lignes(liste, distance = () => null, sansAdresse = false) {
+  return `<ul class="liste-dossiers">${liste.map(d => htmlLigneDossier(d, distance(d), sansAdresse)).join("")}</ul>`;
 }
 
 function htmlFiche(d) {  // fiche du dossier sélectionné, en surimpression sur la carte
   const dist = etat.resultat?.dansRayon.get(d.id), chiffres = chiffresDossier(d);
+  const decision = decisionDossier(d), quand = [decision.charAt(0).toUpperCase() + decision.slice(1), d.demandeur].filter(Boolean).join(" · ");
   return `
     <div class="fiche-haut">
       <span class="badge" data-type="${d.type}" title="${esc(TYPES[d.type])}">${d.type}</span>
@@ -302,8 +315,8 @@ function htmlFiche(d) {  // fiche du dossier sélectionné, en surimpression sur
     </div>
     <p class="titre-dossier${d.etat === "annulé" ? " annule" : ""}">${esc(projet(d).split(" · ")[0] || TYPES[d.type])}</p>
     ${chiffres ? `<p class="detail">${esc(chiffres)}</p>` : ""}
-    <p class="adresse">${esc(d.adresse || "Adresse non renseignée")}</p>
-    <p class="quand">${esc(quandDossier(d))}</p>
+    <p class="adresse">${esc(adresseLisible(d.adresse || "Adresse non renseignée"))}</p>
+    <p class="quand">${esc(quand)}</p>
     <p class="registre">${registreDossier(d)}</p>
     <details><summary>Toutes les informations</summary><dl>${detailsDossier(d)}</dl></details>
     ${carteVisible() ? "" : `<button type="button" class="action" data-action="voir-carte">Voir sur la carte</button>`}`;
@@ -414,8 +427,8 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
   let liste;
   if (!enRayon.length) liste = `<p class="vide-bloc">Aucune autorisation ne correspond. Élargissez le rayon, changez de période ou réactivez un type.</p>`;
   else if (etat.tri === "distance") liste = grouperParAdresse(enRayon, res.dansRayon).map(([adresse, ds, proche]) => `
-      <section class="groupe-adresse"><h3>${enteteGroupe(adresse, ds, proche)}</h3>${grille(ds, distance)}</section>`).join("");
-  else liste = grille([...enRayon].sort(TRIS[etat.tri].ordre), distance);
+      <section class="groupe-adresse"><h3>${enteteGroupe(adresse, ds, proche, true)}</h3>${lignes(ds, distance, true)}</section>`).join("");
+  else liste = lignes([...enRayon].sort(TRIS[etat.tri].ordre), distance);
 
   const ecran = `
     <div class="resume">
@@ -434,9 +447,9 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
     <section class="bloc">
       <h2>${titreParcelle}</h2>
       ${!res.auPoint.length ? `<p class="vide">Aucune parcelle à moins de ${TOLERANCE_VOIE} m de ce point.</p>`
-        : surParcelle.length ? grille(surParcelle) : `<p class="vide">Aucune autorisation sur cette parcelle avec les filtres actuels.</p>`}
+        : surParcelle.length ? lignes(surParcelle) : `<p class="vide">Aucune autorisation sur cette parcelle avec les filtres actuels.</p>`}
     </section>
-    ${voisines.length ? `<section class="bloc"><h2>Sur les parcelles voisines <span class="note">(moins de ${VOISINAGE} m)</span></h2>${grille(voisines, distance)}</section>` : ""}
+    ${voisines.length ? `<section class="bloc"><h2>Sur les parcelles voisines <span class="note">(moins de ${VOISINAGE} m)</span></h2>${lignes(voisines, distance)}</section>` : ""}
     <section class="bloc">
       <div class="tri-barre">
         <h2>Dans le rayon de ${etat.rayon} m</h2>
@@ -588,7 +601,7 @@ function majLegende(anciennes) {  // seulement ce qui peut apparaître sur la ca
 function appliquerSurlignage() {  // parcelles des autorisations sélectionnée et survolée, ou leur point si localisées par l'adresse
   document.querySelectorAll("#vue [data-id]").forEach(el => {
     const choisi = el.dataset.id === etat.surligne;
-    if (el.classList.contains("carte-dossier")) el.setAttribute("aria-pressed", String(choisi));
+    if (el.classList.contains("ligne-dossier")) el.setAttribute("aria-pressed", String(choisi));
     else el.classList.toggle("surlignee", choisi);
   });
   if (!cartePrete) return;
@@ -908,8 +921,8 @@ function initActions() {
     if (cartePrete && etat.survol) { etat.survol = null; appliquerSurlignage(); }
   });
   vue.addEventListener("click", async e => {
-    const carteDossier = e.target.closest(".carte-dossier");
-    if (carteDossier) { selectionner(carteDossier.dataset.id); return; }
+    const ligne = e.target.closest(".ligne-dossier");
+    if (ligne) { selectionner(ligne.dataset.id); return; }
     const resume = e.target.closest(".dossier summary");  // vue parcelle : la ligne se déplie et sa parcelle passe en jaune
     if (resume) {
       const id = resume.closest(".dossier").dataset.id;
