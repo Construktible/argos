@@ -1,0 +1,8 @@
+# Fichiers sources bruts (~1,3 Go) : provenance décrite dans CLAUDE.md
+doc_source/
+
+# Réglages locaux
+.claude/
+.DS_Store
+__pycache__/
+*.pyc

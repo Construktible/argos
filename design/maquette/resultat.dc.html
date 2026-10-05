@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Argos — Autour d’une adresse</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F3EE}
+*{box-sizing:border-box}
+a{color:#1D2125}a:hover{color:#C2410C}
+input::placeholder{color:#6B6F75}
+a:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #1D2125;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 1040px; background: #F5F3EE; color: #1D2125; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 12px clamp(16px, 3vw, 32px); background: #FFFFFF; border-bottom: 1px solid #DDD9D0">
+<a href="accueil.dc.html" aria-label="Argos, accueil" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #1D2125">
+<svg width="28" height="28" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="3.6" fill="#1D2125"></circle><circle cx="15" cy="15" r="8.4" fill="none" stroke="#1D2125" stroke-width="1.7"></circle><circle cx="15" cy="15" r="13.2" fill="none" stroke="#1D2125" stroke-width="1.2" stroke-opacity="0.45"></circle></svg>
+<span style="font-size: 20px; font-weight: 600; letter-spacing: -0.015em">argos</span>
+</a>
+<div style="position: relative; flex: 1 1 380px; min-width: 0; max-width: 680px; display: flex; align-items: center; gap: 10px; padding: 4px 4px 4px 14px; background: #FFFFFF; border: 1.5px solid #1D2125; border-radius: 12px">
+<label for="q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">Adresse, référence cadastrale ou n° de dossier</label>
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A4E54" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.6"></circle></svg>
+<input id="q" type="search" autocomplete="street-address" value="{{ query }}" onChange="{{ onQuery }}" style="flex: 1 1 auto; min-width: 0; height: 44px; border: 0; background: transparent; font: inherit; font-size: 16px; color: #1D2125">
+<button type="button" style="flex: 0 0 auto; height: 40px; padding: 0 18px; border: 0; border-radius: 8px; background: #1D2125; color: #FFFFFF; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer">Rechercher</button>
+</div>
+<div role="group" aria-label="Affichage" style="margin-left: auto; display: inline-flex; padding: 3px; gap: 2px; border: 1px solid #CFCBC1; border-radius: 10px; background: #FFFFFF">
+<sc-for list="{{ views }}" as="o" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{ o.pressed }}" onClick="{{ o.pick }}" style="height: 38px; padding: 0 14px; border: 0; border-radius: 7px; background: {{ o.bg }}; color: {{ o.color }}; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer">{{ o.label }}</button>
+</sc-for>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 12px clamp(16px, 3vw, 32px); border-bottom: 1px solid #DDD9D0">
+<fieldset style="margin: 0; padding: 0; border: 0; min-width: 0">
+<legend style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap">Types d’autorisation affichés</legend>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+<button type="button" aria-pressed="{{ c.pressed }}" onClick="{{ c.toggle }}" style="display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px 0 8px; border-radius: 999px; border: 1px solid {{ c.border }}; background: {{ c.bg }}; color: {{ c.color }}; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer">
+<span style="display: inline-flex; align-items: center; justify-content: center; min-width: 32px; height: 26px; padding: 0 6px; border-radius: 999px; background: {{ c.dotBg }}; color: {{ c.dotFg }}; font-family: 'IBM Plex Mono', monospace; font-size: 12px">{{ c.code }}</span>
+<span>{{ c.label }}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5C6066">{{ c.count }}</span>
+</button>
+</sc-for>
+</div>
+</fieldset>
+<div style="display: flex; align-items: center; gap: 10px">
+<span id="lbl-rayon" style="font-size: 14px; color: #3F4349">Rayon</span>
+<div role="group" aria-labelledby="lbl-rayon" style="display: inline-flex; padding: 3px; gap: 2px; border: 1px solid #CFCBC1; border-radius: 10px; background: #FFFFFF">
+<sc-for list="{{ rayons }}" as="o" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{ o.pressed }}" onClick="{{ o.pick }}" style="height: 38px; padding: 0 12px; border: 0; border-radius: 7px; background: {{ o.bg }}; color: {{ o.color }}; font-family: 'IBM Plex Mono', monospace; font-size: 13px; cursor: pointer">{{ o.label }}</button>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<label for="periode" style="font-size: 14px; color: #3F4349">Période</label>
+<select id="periode" value="{{ periode }}" onChange="{{ onPeriode }}" style="height: 44px; padding: 0 10px; border: 1px solid #CFCBC1; border-radius: 10px; background: #FFFFFF; font: inherit; font-size: 14px; color: #1D2125">
+<option value="tout">Toutes les dates</option>
+<option value="douze">12 derniers mois</option>
+<option value="2026">Depuis janvier 2026</option>
+</select>
+</div>
+<span style="margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5C6066">SITADEL · mise à jour [mois année]</span>
+</div>
+
+<div style="flex: 1 0 auto; display: flex; flex-wrap: wrap">
+
+<section aria-label="Autorisations autour de l’adresse" style="display: {{ listDisplay }}; flex: 1.4 1 560px; min-width: 0; height: 860px; overflow-y: auto; padding: 28px clamp(16px, 3vw, 32px) 40px; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #4A4E54">Autour du 48 rue de Paris · Montreuil</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 3px 8px; border: 1px dashed #A8A398; border-radius: 6px; color: #5C6066">Données fictives — maquette</span>
+</div>
+<h1 style="margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; font-weight: 600; letter-spacing: -0.02em">{{ summaryTitle }}</h1>
+<p style="margin: 0; font-size: 16px; line-height: 1.5; color: #3F4349">{{ summaryLine }}</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid #DDD9D0">
+<span style="font-size: 14px; color: #3F4349">{{ sortHint }}</span>
+<div style="display: flex; align-items: center; gap: 10px">
+<span id="lbl-tri" style="font-size: 14px; color: #3F4349">Trier par</span>
+<div role="group" aria-labelledby="lbl-tri" style="display: inline-flex; padding: 3px; gap: 2px; border: 1px solid #CFCBC1; border-radius: 10px; background: #FFFFFF">
+<sc-for list="{{ sorts }}" as="o" hint-placeholder-count="3">
+<button type="button" aria-pressed="{{ o.pressed }}" onClick="{{ o.pick }}" style="height: 38px; padding: 0 12px; border: 0; border-radius: 7px; background: {{ o.bg }}; color: {{ o.color }}; font: inherit; font-size: 14px; cursor: pointer">{{ o.label }}</button>
+</sc-for>
+</div>
+</div>
+</div>
+
+<sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 24px; border: 1px dashed #CFCBC1; border-radius: 14px; font-size: 15px; line-height: 1.5; color: #3F4349">Aucune autorisation ne correspond. Élargissez le rayon, changez de période ou réactivez un type.</p>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px">
+<sc-for list="{{ list }}" as="it" hint-placeholder-count="6">
+<button type="button" aria-pressed="{{ it.pressed }}" onClick="{{ it.pick }}" style="display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 18px; text-align: left; background: #FFFFFF; border: 1px solid {{ it.border }}; border-radius: 14px; box-shadow: {{ it.shadow }}; font: inherit; color: #1D2125; cursor: pointer">
+<span style="display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%">
+<span style="display: inline-flex; align-items: center; gap: 10px">
+<span style="display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 26px; padding: 0 8px; border-radius: 6px; background: {{ it.bg }}; color: {{ it.fg }}; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500">{{ it.type }}</span>
+<sc-if value="{{ it.important }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: #1D2125">Projet important</span></sc-if>
+</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #3F4349">{{ it.distLabel }}</span>
+</span>
+<span style="display: block; font-size: 18px; font-weight: 600; line-height: 1.25">{{ it.nature }}</span>
+<span style="display: block; font-size: 15px; line-height: 1.45; color: #3F4349">{{ it.detail }}</span>
+<span style="display: block; font-size: 15px; line-height: 1.4">{{ it.adresse }}</span>
+<span style="display: block; font-size: 13px; color: #4A4E54">{{ it.date }} · {{ it.demandeur }}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 2px 12px; width: 100%; padding-top: 10px; border-top: 1px dashed #D6D2C8; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4A4E54"><span>{{ it.dossier }}</span><span>{{ it.parcLabel }} {{ it.parcelles }}</span></span>
+</button>
+</sc-for>
+</div>
+</section>
+
+<section aria-label="Carte" style="display: {{ mapDisplay }}; flex: 1 1 440px; min-width: 0; height: 860px; position: relative; overflow: hidden; background: #EDEAE3; border-left: 1px solid #DDD9D0">
+<svg aria-hidden="true" width="1400" height="1400" viewBox="-700 -700 1400 1400" style="position: absolute; left: calc(50% - 700px); top: calc(50% - 700px); pointer-events: none">
+<defs>
+<pattern id="argos-ilots" width="56" height="38" patternUnits="userSpaceOnUse" patternTransform="rotate(-2.5)">
+<rect x="2" y="2" width="25" height="15" fill="#E4E0D7" stroke="#D3CEC3" stroke-width="0.8"></rect>
+<rect x="29" y="2" width="25" height="15" fill="#E8E4DC" stroke="#D3CEC3" stroke-width="0.8"></rect>
+<rect x="2" y="19" width="16" height="17" fill="#E8E4DC" stroke="#D3CEC3" stroke-width="0.8"></rect>
+<rect x="20" y="19" width="34" height="17" fill="#E4E0D7" stroke="#D3CEC3" stroke-width="0.8"></rect>
+</pattern>
+</defs>
+<rect x="-700" y="-700" width="1400" height="1400" fill="#EDEAE3"></rect>
+<rect x="-700" y="-700" width="1400" height="1400" fill="url(#argos-ilots)"></rect>
+<path d="M-660 -590 L-460 -604 L-447 -440 L-650 -425 Z" fill="#DCE3D2" stroke="#CBD4BF" stroke-width="1"></path>
+<path d="M600 430 L690 425 L695 640 L605 645 Z" fill="#DCE3D2" stroke="#CBD4BF" stroke-width="1"></path>
+<g fill="none" stroke-linecap="butt">
+<path d="M-700 -640 L-240 -112" stroke="#D8D3C8" stroke-width="12"></path>
+<path d="M-700 -420 L700 -470" stroke="#D8D3C8" stroke-width="13"></path>
+<path d="M-700 420 L700 380" stroke="#D8D3C8" stroke-width="14"></path>
+<path d="M-420 -700 L-470 700" stroke="#D8D3C8" stroke-width="13"></path>
+<path d="M520 -700 L560 700" stroke="#D8D3C8" stroke-width="13"></path>
+<path d="M48 20 L70 700" stroke="#D8D3C8" stroke-width="13"></path>
+<path d="M-60 -700 L-20 700" stroke="#D8D3C8" stroke-width="13"></path>
+<path d="M-700 -95 L700 -150" stroke="#D8D3C8" stroke-width="15"></path>
+<path d="M-700 125 L700 70" stroke="#D8D3C8" stroke-width="16"></path>
+<path d="M140 -700 L230 700" stroke="#D8D3C8" stroke-width="28"></path>
+<path d="M-700 52 L700 -8" stroke="#D8D3C8" stroke-width="26"></path>
+<path d="M-700 -640 L-240 -112" stroke="#FBFAF7" stroke-width="8"></path>
+<path d="M-700 -420 L700 -470" stroke="#FBFAF7" stroke-width="9"></path>
+<path d="M-700 420 L700 380" stroke="#FBFAF7" stroke-width="10"></path>
+<path d="M-420 -700 L-470 700" stroke="#FBFAF7" stroke-width="9"></path>
+<path d="M520 -700 L560 700" stroke="#FBFAF7" stroke-width="9"></path>
+<path d="M48 20 L70 700" stroke="#FBFAF7" stroke-width="9"></path>
+<path d="M-60 -700 L-20 700" stroke="#FBFAF7" stroke-width="9"></path>
+<path d="M-700 -95 L700 -150" stroke="#FBFAF7" stroke-width="11"></path>
+<path d="M-700 125 L700 70" stroke="#FBFAF7" stroke-width="12"></path>
+<path d="M140 -700 L230 700" stroke="#FFFFFF" stroke-width="22"></path>
+<path d="M-700 52 L700 -8" stroke="#FFFFFF" stroke-width="20"></path>
+</g>
+<rect x="-15" y="-15" width="30" height="22" fill="#1D2125" fill-opacity="0.12" stroke="#1D2125" stroke-width="1.5" transform="rotate(-2.45)"></rect>
+<g font-family="IBM Plex Sans, sans-serif" fill="#6B6F75" text-anchor="middle" letter-spacing="0.3">
+<text x="-470" y="46" font-size="11" transform="rotate(-2.45 -470 42)">Rue de Paris</text>
+<text x="157" y="-436" font-size="11" transform="rotate(86.3 157 -440)">Bd Rouget de Lisle</text>
+<text x="-560" y="123" font-size="10" transform="rotate(-2.25 -560 120)">Rue Kléber</text>
+</g>
+</svg>
+
+<div aria-hidden="true" style="position: absolute; left: 50%; top: 50%; width: {{ ringD }}px; height: {{ ringD }}px; margin-left: {{ ringM }}px; margin-top: {{ ringM }}px; border-radius: 50%; border: 2px dashed rgba(29, 33, 37, 0.55); background: rgba(29, 33, 37, 0.045); pointer-events: none"></div>
+<span aria-hidden="true" style="position: absolute; left: 50%; top: calc(50% - {{ ringR }}px); transform: translate(-50%, -50%); padding: 3px 8px; background: #FFFFFF; border: 1px solid #1D2125; border-radius: 999px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #1D2125; pointer-events: none">{{ rayon }} m</span>
+
+<sc-for list="{{ markers }}" as="m" hint-placeholder-count="8">
+<button type="button" aria-label="{{ m.aria }}" onClick="{{ m.pick }}" style="position: absolute; left: calc(50% + {{ m.px }}px); top: calc(50% + {{ m.py }}px); width: 40px; height: 40px; margin: -20px 0 0 -20px; padding: 0; border: 0; background: transparent; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: {{ m.z }}">
+<span style="display: flex; align-items: center; justify-content: center; width: {{ m.size }}px; height: {{ m.size }}px; border-radius: 50%; background: {{ m.bg }}; color: {{ m.fg }}; border: 2px solid #FFFFFF; box-sizing: border-box; font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; opacity: {{ m.op }}; box-shadow: {{ m.shadow }}">{{ m.letter }}</span>
+</button>
+</sc-for>
+
+<div aria-hidden="true" style="position: absolute; left: 50%; top: 50%; width: 0; height: 0; z-index: 4">
+<span style="position: absolute; left: 0; bottom: 16px; transform: translateX(-50%); white-space: nowrap; padding: 5px 10px; background: #1D2125; color: #FFFFFF; border-radius: 8px; font-size: 13px; font-weight: 600">48 rue de Paris</span>
+<span style="position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: #1D2125; border: 3px solid #FFFFFF; box-shadow: 0 0 0 1px #1D2125"></span>
+</div>
+
+<div style="position: absolute; left: 16px; top: 16px; z-index: 6; display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; background: rgba(255, 255, 255, 0.95); border: 1px solid #DDD9D0; border-radius: 12px; font-size: 13px; color: #1D2125">
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #C2410C"></span>Permis de construire</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #0B7285"></span>Permis d’aménager</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #7048E8"></span>Permis de démolir</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #E0A100"></span>Déclaration préalable</span>
+<span style="display: flex; align-items: center; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid #E4E0D7; color: #3F4349"><span style="width: 8px; height: 8px; border-radius: 50%; background: #6B6F75"></span><span style="width: 12px; height: 12px; border-radius: 50%; background: #6B6F75"></span><span style="width: 17px; height: 17px; border-radius: 50%; background: #6B6F75"></span>taille = ampleur</span>
+<span style="color: #3F4349">Estompé = hors rayon</span>
+</div>
+
+<div style="position: absolute; right: 16px; top: 16px; z-index: 6; display: flex; flex-direction: column; border: 1px solid #DDD9D0; border-radius: 10px; overflow: hidden; background: #FFFFFF">
+<button type="button" aria-label="Zoomer" style="width: 44px; height: 44px; padding: 0; border: 0; border-bottom: 1px solid #DDD9D0; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1D2125" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"></path></svg></button>
+<button type="button" aria-label="Dézoomer" style="width: 44px; height: 44px; padding: 0; border: 0; border-bottom: 1px solid #DDD9D0; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1D2125" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8h10"></path></svg></button>
+<button type="button" aria-label="Recentrer sur l’adresse" style="width: 44px; height: 44px; padding: 0; border: 0; background: #FFFFFF; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#1D2125" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="9" r="4.5"></circle><path d="M9 1.5v3M9 13.5v3M1.5 9h3M13.5 9h3"></path></svg></button>
+</div>
+
+<sc-if value="{{ hasSel }}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 16px; right: 16px; bottom: 30px; z-index: 7; max-width: 440px; margin-left: auto; display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; background: #FFFFFF; border: 1px solid #1D2125; border-radius: 14px; box-shadow: 0 12px 32px rgba(29, 33, 37, 0.18)">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<span style="display: inline-flex; align-items: center; justify-content: center; min-width: 38px; height: 26px; padding: 0 8px; border-radius: 6px; background: {{ selBg }}; color: {{ selFg }}; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500">{{ selType }}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #3F4349">à {{ selDist }}</span>
+<sc-if value="{{ selHors }}" hint-placeholder-val="{{ false }}"><span style="font-size: 12px; padding: 2px 8px; border: 1px dashed #A8A398; border-radius: 6px; color: #5C6066">hors rayon</span></sc-if>
+</div>
+<button type="button" aria-label="Fermer" onClick="{{ closeSel }}" style="flex: 0 0 auto; width: 40px; height: 40px; margin: -8px -10px 0 0; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#1D2125" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"></path></svg></button>
+</div>
+<p style="margin: 0; font-size: 18px; font-weight: 600; line-height: 1.25">{{ selNature }}</p>
+<p style="margin: 0; font-size: 15px; line-height: 1.45; color: #3F4349">{{ selDetail }}</p>
+<p style="margin: 0; font-size: 15px">{{ selAdresse }}</p>
+<p style="margin: 0; font-size: 13px; color: #4A4E54">{{ selDate }} · {{ selDemandeur }}</p>
+<p style="margin: 4px 0 0; padding-top: 8px; border-top: 1px dashed #D6D2C8; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #4A4E54">{{ selDossier }} · {{ selParcLabel }} {{ selParcelles }}</p>
+</div>
+</sc-if>
+
+<span style="position: absolute; right: 8px; bottom: 6px; z-index: 6; padding: 2px 6px; background: rgba(255, 255, 255, 0.85); border-radius: 4px; font-size: 11px; color: #4A4E54">Fond : [à définir] · Parcelles : cadastre Etalab</span>
+</section>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  st() {
+    var s = this.state || {};
+    return {
+      query: s.query !== undefined ? s.query : '48 rue de Paris, 93100 Montreuil',
+      rayon: s.rayon || 300,
+      off: s.off || {},
+      sort: s.sort || 'ampleur',
+      periode: s.periode || 'tout',
+      view: s.view || 'split',
+      sel: s.sel !== undefined ? s.sel : 'a'
+    };
+  }
+  types() {
+    return {
+      PC: { label: 'Permis de construire', short: 'Construire', bg: '#C2410C', fg: '#FFFFFF' },
+      PA: { label: 'Permis d’aménager', short: 'Aménager', bg: '#0B7285', fg: '#FFFFFF' },
+      PD: { label: 'Permis de démolir', short: 'Démolir', bg: '#7048E8', fg: '#FFFFFF' },
+      DP: { label: 'Déclaration préalable', short: 'Déclaration préalable', bg: '#E0A100', fg: '#1D2125' }
+    };
+  }
+  items() {
+    var raw = [
+      { id: 'a', type: 'PC', ampleur: 3, surface: 2450, lgts: 38, dx: 135, dy: -35, ts: 20260314, nature: 'Immeuble de logements', detail: '38 logements · 2 450 m² de surface de plancher', adresse: '52-56 rue de Paris', date: 'Autorisé le 14 mars 2026', demandeur: 'Personne morale', dossier: 'PC 093048 25 B0041', parcelles: 'AK 0212, AK 0213' },
+      { id: 'b', type: 'PD', ampleur: 2, surface: 1800, lgts: 0, dx: 190, dy: 95, ts: 20260202, nature: 'Démolition d’un entrepôt', detail: '1 800 m² démolis', adresse: '17 rue de Vincennes', date: 'Autorisé le 2 février 2026', demandeur: 'Personne morale', dossier: 'PD 093048 25 B0007', parcelles: 'AK 0198' },
+      { id: 'c', type: 'PC', ampleur: 3, surface: 1100, lgts: 0, dx: 270, dy: -90, ts: 20260527, nature: 'Bureaux et commerce', detail: 'Locaux d’activité · 1 100 m² de surface de plancher', adresse: '121 boulevard Rouget de Lisle', date: 'Autorisé le 27 mai 2026', demandeur: 'Personne morale', dossier: 'PC 093048 26 B0018', parcelles: 'AL 0045' },
+      { id: 'd', type: 'PA', ampleur: 2, surface: 3200, lgts: 0, dx: -200, dy: 165, ts: 20251009, nature: 'Lotissement', detail: '6 lots à bâtir · terrain de 3 200 m²', adresse: '8-12 rue Kléber', date: 'Autorisé le 9 octobre 2025', demandeur: 'Personne morale', dossier: 'PA 093048 25 B0003', parcelles: 'AH 0310, AH 0311, AH 0312' },
+      { id: 'e', type: 'PC', ampleur: 1, surface: 140, lgts: 1, dx: 60, dy: 222, ts: 20260718, nature: 'Maison individuelle', detail: '1 logement · 140 m² de surface de plancher', adresse: '33 rue Lenain de Tillemont', date: 'Autorisé le 18 juillet 2026', demandeur: 'Particulier', dossier: 'PC 093048 26 B0052', parcelles: 'AK 0277' },
+      { id: 'f', type: 'DP', ampleur: 1, surface: 65, lgts: 1, dx: -120, dy: -135, ts: 20260403, nature: 'Changement de destination', detail: 'Commerce transformé en logement · 65 m²', adresse: '3 rue Barbès', date: 'Non-opposition le 3 avril 2026', demandeur: 'Particulier', dossier: 'DP 093048 26 B0129', parcelles: 'AK 0188' },
+      { id: 'g', type: 'DP', ampleur: 1, surface: 0, lgts: 0, dx: -95, dy: 8, ts: 20260121, nature: 'Ravalement et façade', detail: 'Modification de façade · aucune surface créée', adresse: '44 rue de Paris', date: 'Non-opposition le 21 janvier 2026', demandeur: 'Particulier', dossier: 'DP 093048 26 B0014', parcelles: 'AK 0204' },
+      { id: 'h', type: 'DP', ampleur: 1, surface: 18, lgts: 0, dx: -45, dy: 40, ts: 20260606, nature: 'Extension', detail: 'Véranda · 18 m² de surface de plancher', adresse: '7 rue Barbès', date: 'Non-opposition le 6 juin 2026', demandeur: 'Particulier', dossier: 'DP 093048 26 B0201', parcelles: 'AK 0231' },
+      { id: 'i', type: 'PC', ampleur: 3, surface: 1650, lgts: 24, dx: -380, dy: -180, ts: 20251130, nature: 'Résidence', detail: '24 logements · 1 650 m² de surface de plancher', adresse: '90 rue Marceau', date: 'Autorisé le 30 novembre 2025', demandeur: 'Personne morale', dossier: 'PC 093048 25 B0112', parcelles: 'AG 0091' },
+      { id: 'j', type: 'PC', ampleur: 3, surface: 4100, lgts: 62, dx: 330, dy: 335, ts: 20250812, nature: 'Immeuble de logements', detail: '62 logements · 4 100 m² de surface de plancher', adresse: '180 boulevard Rouget de Lisle', date: 'Autorisé le 12 août 2025', demandeur: 'Personne morale', dossier: 'PC 093048 25 B0087', parcelles: 'AM 0150, AM 0151' },
+      { id: 'k', type: 'PD', ampleur: 1, surface: 95, lgts: 0, dx: -310, dy: 185, ts: 20260304, nature: 'Démolition d’un pavillon', detail: '95 m² démolis', adresse: '26 rue Kléber', date: 'Autorisé le 4 mars 2026', demandeur: 'Particulier', dossier: 'PD 093048 26 B0011', parcelles: 'AH 0298' },
+      { id: 'l', type: 'DP', ampleur: 1, surface: 0, lgts: 0, dx: 600, dy: -250, ts: 20260515, nature: 'Clôture et portail', detail: 'Aucune surface créée', adresse: '150 rue Marceau', date: 'Non-opposition le 15 mai 2026', demandeur: 'Particulier', dossier: 'DP 093048 26 B0170', parcelles: 'AN 0062' },
+      { id: 'm', type: 'PC', ampleur: 2, surface: 210, lgts: 2, dx: -650, dy: 200, ts: 20250923, nature: 'Surélévation', detail: '2 logements · 210 m² de surface de plancher', adresse: '41 rue Kléber', date: 'Autorisé le 23 septembre 2025', demandeur: 'Particulier', dossier: 'PC 093048 25 B0099', parcelles: 'AG 0120' }
+    ];
+    return raw.map(function (d) {
+      d.dist = Math.round(Math.sqrt(d.dx * d.dx + d.dy * d.dy));
+      return d;
+    });
+  }
+  distLabel(m) {
+    return (Math.round(m / 10) * 10) + ' m';
+  }
+  plural(n, word) {
+    return n + ' ' + word + (n > 1 ? 's' : '');
+  }
+  renderVals() {
+    var self = this;
+    var s = this.st();
+    var T = this.types();
+    var all = this.items();
+    var set = function (patch) { self.setState(patch); };
+    var minTs = s.periode === '2026' ? 20260101 : (s.periode === 'douze' ? 20251005 : 0);
+    var inPeriod = all.filter(function (d) { return d.ts >= minTs; });
+    var shown = inPeriod.filter(function (d) { return !s.off[d.type]; });
+    var inRing = shown.filter(function (d) { return d.dist <= s.rayon; });
+    var sorted = inRing.slice().sort(function (a, b) {
+      if (s.sort === 'distance') return a.dist - b.dist;
+      if (s.sort === 'date') return b.ts - a.ts;
+      return (b.ampleur - a.ampleur) || (b.surface - a.surface);
+    });
+
+    var list = sorted.map(function (d) {
+      var t = T[d.type];
+      var on = d.id === s.sel;
+      return {
+        type: d.type, nature: d.nature, detail: d.detail, adresse: d.adresse, date: d.date,
+        demandeur: d.demandeur, dossier: d.dossier, parcelles: d.parcelles,
+        parcLabel: d.parcelles.indexOf(',') > -1 ? 'Parcelles' : 'Parcelle',
+        distLabel: self.distLabel(d.dist),
+        important: d.ampleur === 3,
+        pressed: on,
+        bg: t.bg, fg: t.fg,
+        border: on ? '#1D2125' : '#DDD9D0',
+        shadow: on ? '0 0 0 2px #1D2125' : '0 1px 2px rgba(29, 33, 37, 0.06)',
+        pick: function () { set({ sel: on ? '' : d.id }); }
+      };
+    });
+
+    var markers = shown.map(function (d) {
+      var t = T[d.type];
+      var inside = d.dist <= s.rayon;
+      var on = d.id === s.sel;
+      return {
+        px: Math.round(d.dx * 0.6),
+        py: Math.round(d.dy * 0.6),
+        size: d.ampleur === 3 ? 30 : (d.ampleur === 2 ? 20 : 13),
+        letter: d.ampleur === 3 ? d.type : '',
+        bg: t.bg, fg: t.fg,
+        op: inside ? 1 : 0.4,
+        z: on ? 5 : (inside ? 3 : 2),
+        shadow: on ? '0 0 0 3px #1D2125' : '0 1px 3px rgba(29, 33, 37, 0.35)',
+        aria: t.label + ', ' + d.adresse + ', à ' + self.distLabel(d.dist) + (inside ? '' : ', hors rayon'),
+        pick: function () { set({ sel: d.id }); }
+      };
+    });
+
+    var chips = ['PC', 'PA', 'PD', 'DP'].map(function (k) {
+      var t = T[k];
+      var on = !s.off[k];
+      var n = inPeriod.filter(function (d) { return d.type === k && d.dist <= s.rayon; }).length;
+      return {
+        code: k, label: t.short, count: n, pressed: on,
+        bg: on ? '#FFFFFF' : 'transparent',
+        border: on ? '#1D2125' : '#CFCBC1',
+        color: on ? '#1D2125' : '#5C6066',
+        dotBg: on ? t.bg : '#D6D2C8',
+        dotFg: on ? t.fg : '#3F4349',
+        toggle: function () {
+          var o = {};
+          for (var x in s.off) { o[x] = s.off[x]; }
+          o[k] = !o[k];
+          set({ off: o });
+        }
+      };
+    });
+
+    var seg = function (opts, current, key) {
+      return opts.map(function (o) {
+        var on = o.v === current;
+        return {
+          label: o.l, pressed: on,
+          bg: on ? '#1D2125' : 'transparent',
+          color: on ? '#FFFFFF' : '#1D2125',
+          pick: function () { var p = {}; p[key] = o.v; set(p); }
+        };
+      });
+    };
+
+    var n = inRing.length;
+    var imp = inRing.filter(function (d) { return d.ampleur === 3; }).length;
+    var lg = inRing.reduce(function (acc, d) { return acc + d.lgts; }, 0);
+    var title = n === 0
+      ? 'Aucune autorisation à moins de ' + s.rayon + ' m'
+      : self.plural(n, 'autorisation') + ' à moins de ' + s.rayon + ' m';
+    var line = (imp === 0 ? 'Aucun projet important' : 'Dont ' + self.plural(imp, 'projet') + ' important' + (imp > 1 ? 's' : ''))
+      + ' · ' + (lg === 0 ? 'aucun logement créé' : self.plural(lg, 'logement') + ' créé' + (lg > 1 ? 's' : ''));
+    var hints = {
+      ampleur: 'Les projets les plus importants d’abord.',
+      distance: 'Les plus proches d’abord.',
+      date: 'Les décisions les plus récentes d’abord.'
+    };
+
+    var sel = null;
+    shown.forEach(function (d) { if (d.id === s.sel) { sel = d; } });
+    var st = sel ? T[sel.type] : T.PC;
+    var ringD = Math.round(s.rayon * 2 * 0.6);
+
+    return {
+      query: s.query,
+      onQuery: function (e) { set({ query: e.target.value }); },
+      periode: s.periode,
+      onPeriode: function (e) { set({ periode: e.target.value }); },
+      chips: chips,
+      rayons: seg([{ v: 150, l: '150 m' }, { v: 300, l: '300 m' }, { v: 500, l: '500 m' }], s.rayon, 'rayon'),
+      sorts: seg([{ v: 'ampleur', l: 'Ampleur' }, { v: 'distance', l: 'Distance' }, { v: 'date', l: 'Date' }], s.sort, 'sort'),
+      views: seg([{ v: 'split', l: 'Liste + carte' }, { v: 'liste', l: 'Liste' }, { v: 'carte', l: 'Carte' }], s.view, 'view'),
+      listDisplay: s.view === 'carte' ? 'none' : 'flex',
+      mapDisplay: s.view === 'liste' ? 'none' : 'block',
+      summaryTitle: title,
+      summaryLine: line,
+      sortHint: hints[s.sort],
+      list: list,
+      isEmpty: n === 0,
+      markers: markers,
+      rayon: s.rayon,
+      ringD: ringD,
+      ringM: -Math.round(ringD / 2),
+      ringR: Math.round(ringD / 2),
+      hasSel: !!sel,
+      selType: sel ? sel.type : '',
+      selBg: st.bg,
+      selFg: st.fg,
+      selNature: sel ? sel.nature : '',
+      selDetail: sel ? sel.detail : '',
+      selAdresse: sel ? sel.adresse : '',
+      selDist: sel ? self.distLabel(sel.dist) : '',
+      selHors: sel ? sel.dist > s.rayon : false,
+      selDate: sel ? sel.date : '',
+      selDemandeur: sel ? sel.demandeur : '',
+      selDossier: sel ? sel.dossier : '',
+      selParcLabel: sel && sel.parcelles.indexOf(',') > -1 ? 'Parcelles' : 'Parcelle',
+      selParcelles: sel ? sel.parcelles : '',
+      closeSel: function () { set({ sel: '' }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

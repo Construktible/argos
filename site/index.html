@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argos · Autorisations d'urbanisme à Montreuil</title>
+<meta name="description" content="Permis de construire, déclarations préalables, permis d'aménager et de démolir accordés à Montreuil depuis 2013 : parcelle par parcelle, et dans un rayon autour d'une adresse.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://data.geopf.fr; connect-src 'self' https://data.geopf.fr; worker-src blob:; child-src blob:; font-src 'self'">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
+<link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css?v=18">
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous" defer></script>
+<script src="app.js?v=18" defer></script>
+</head>
+<body>
+
+<!-- Écran 1 · Accueil, sans carte -->
+<div class="accueil" id="accueil" hidden>
+  <header class="accueil-entete">
+    <a class="titre" href="#" aria-label="Argos, accueil">
+      <svg class="logo" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+        <circle cx="15" cy="15" r="3.6" fill="currentColor"/>
+        <circle cx="15" cy="15" r="8.4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <circle cx="15" cy="15" r="13.2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-opacity=".45"/>
+      </svg>
+      <span class="marque">argos</span>
+    </a>
+    <nav class="accueil-nav" aria-label="Navigation principale">
+      <a href="#explorer">Explorer la carte</a>
+      <a href="#donnees">Les données</a>
+      <span class="pastille">Pilote · <span data-info="commune">Montreuil</span> <span data-info="insee">93048</span></span>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <svg class="motif" aria-hidden="true" width="1600" height="900" viewBox="-800 -450 1600 900">
+        <g fill="none">
+          <g class="bord">
+            <path d="M-800 120 L800 60" stroke-width="28"/>
+            <path d="M380 -450 L470 450" stroke-width="26"/>
+            <path d="M-260 -450 L-190 450" stroke-width="16"/>
+            <path d="M-800 -250 L800 -310" stroke-width="14"/>
+            <path d="M-800 330 L800 290" stroke-width="14"/>
+            <path d="M-620 -450 L-660 450" stroke-width="12"/>
+            <path d="M660 -450 L710 450" stroke-width="12"/>
+          </g>
+          <g class="voie">
+            <path d="M-800 120 L800 60" stroke-width="22"/>
+            <path d="M380 -450 L470 450" stroke-width="20"/>
+            <path d="M-260 -450 L-190 450" stroke-width="11"/>
+            <path d="M-800 -250 L800 -310" stroke-width="9"/>
+            <path d="M-800 330 L800 290" stroke-width="9"/>
+            <path d="M-620 -450 L-660 450" stroke-width="7"/>
+            <path d="M660 -450 L710 450" stroke-width="7"/>
+          </g>
+          <g class="anneaux">
+            <circle r="320"/>
+            <circle r="450" stroke-dasharray="4 7"/>
+            <circle r="600" stroke-opacity=".6"/>
+          </g>
+        </g>
+        <g class="points">
+          <circle cx="-620" cy="-230" r="7" data-type="PC"/>
+          <circle cx="-540" cy="210" r="10" data-type="PA"/>
+          <circle cx="560" cy="-200" r="7" data-type="PD"/>
+          <circle cx="660" cy="170" r="5" data-type="DP"/>
+          <circle cx="-710" cy="20" r="4" data-type="DP"/>
+          <circle cx="720" cy="-40" r="11" data-type="PC"/>
+          <circle cx="500" cy="330" r="5" data-type="DP"/>
+          <circle cx="-440" cy="-350" r="6" data-type="PD"/>
+          <circle cx="-380" cy="340" r="12" data-type="PC"/>
+        </g>
+      </svg>
+
+      <div class="hero-contenu">
+        <p class="surtitre">Autorisations d'urbanisme · données SITADEL</p>
+        <h1>Qu'est-ce qui se prépare autour de cette adresse&nbsp;?</h1>
+        <p class="chapo">Permis de construire, d'aménager, de démolir et déclarations préalables accordés
+          à <span data-info="commune">Montreuil</span> depuis <span data-info="premiere_annee">2013</span>,
+          autour d'une adresse ou sur une parcelle.</p>
+
+        <form class="grande-recherche" id="recherche-accueil" role="search" autocomplete="off">
+          <label for="q-accueil">Une adresse à <span data-info="commune">Montreuil</span></label>
+          <div class="zone-barre">
+            <div class="barre">
+              <svg class="epingle" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+              <input id="q-accueil" type="search" placeholder="Ex. 27 bis rue du Progrès" spellcheck="false"
+                     role="combobox" aria-autocomplete="list" aria-controls="suggestions-accueil" aria-expanded="false">
+              <button type="submit" class="bouton-principal">Rechercher</button>
+            </div>
+            <ul id="suggestions-accueil" class="suggestions" role="listbox" aria-label="Adresses proposées" hidden></ul>
+          </div>
+          <p class="exemples">Essayer :
+            <button type="button" data-q="27 bis rue du Progrès, Montreuil">27 bis rue du Progrès</button>
+            <button type="button" data-q="44 rue Cuvier, Montreuil">44 rue Cuvier</button>
+            <button type="button" data-q="24 rue Rochebrune, Montreuil">24 rue Rochebrune</button>
+          </p>
+        </form>
+
+        <a class="explorer" href="#explorer">ou explorer directement sur la carte<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+    </section>
+
+    <section class="etapes" aria-labelledby="titre-etapes">
+      <div class="largeur">
+        <h2 id="titre-etapes">De l'adresse au dossier, en trois temps</h2>
+        <div class="trois">
+          <div>
+            <span class="numero">01</span>
+            <h3>Une adresse</h3>
+            <p>Saisissez une adresse à <span data-info="commune">Montreuil</span> : Argos retrouve la parcelle cadastrale qui lui correspond.</p>
+          </div>
+          <div>
+            <span class="numero">02</span>
+            <h3>Un rayon</h3>
+            <p>Les autorisations accordées sur la parcelle, sur ses voisines et dans un rayon de 100 à 500 m, à imprimer ou à télécharger en tableau.</p>
+          </div>
+          <div>
+            <span class="numero">03</span>
+            <h3>Chaque dossier</h3>
+            <p>Nature des travaux, logements et surface créés, date de décision et parcelles concernées, même renumérotées depuis.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="donnees" id="donnees" aria-labelledby="titre-types">
+      <div class="largeur">
+        <div class="intro">
+          <h2 id="titre-types">Quatre types d'autorisations, quatre couleurs</h2>
+          <p>Chaque type garde la même couleur partout : dans la liste, les filtres et les fiches.</p>
+          <p data-info="bilan"></p>
+        </div>
+        <div class="types">
+          <article class="type-carte" data-type="PC">
+            <span class="badge">PC</span>
+            <h3>Permis de construire</h3>
+            <p>Construction neuve, extension importante, certains changements de destination.</p>
+            <p class="compte" data-compte="PC"></p>
+          </article>
+          <article class="type-carte" data-type="PA">
+            <span class="badge">PA</span>
+            <h3>Permis d'aménager</h3>
+            <p>Lotissements, divisions avec voies ou espaces communs, aménagements d'ensemble.</p>
+            <p class="compte" data-compte="PA"></p>
+          </article>
+          <article class="type-carte" data-type="PD">
+            <span class="badge">PD</span>
+            <h3>Permis de démolir</h3>
+            <p>Démolition totale ou partielle d'une construction.</p>
+            <p class="compte" data-compte="PD"></p>
+          </article>
+          <article class="type-carte" data-type="DP">
+            <span class="badge">DP</span>
+            <h3>Déclaration préalable</h3>
+            <p>Travaux plus modestes : petite extension, changement de destination. Seules celles qui créent un logement ou de la surface figurent ici.</p>
+            <p class="compte" data-compte="DP"></p>
+          </article>
+        </div>
+        <dl class="meta">
+          <div><dt>Source</dt><dd>SITADEL · SDES</dd></div>
+          <div><dt>Parcelles</dt><dd>Cadastre Etalab, de 2017 à <span data-info="cadastre"></span></dd></div>
+          <div><dt>Données à jour de</dt><dd data-info="sitadel"></dd></div>
+          <div><dt>Couverture</dt><dd><span data-info="commune">Montreuil</span> (<span data-info="insee">93048</span>) · pilote</dd></div>
+        </dl>
+        <div class="limites">
+          <h3>Ce que les données ne contiennent pas</h3>
+          <ul>
+            <li>Seules figurent les autorisations <strong>accordées</strong> qui créent des logements ou de la surface de plancher,
+              plus les permis d'aménager et de démolir. Ni les refus, ni les dossiers en cours d'instruction.</li>
+            <li>Les travaux qui ne créent ni logement ni surface de plancher (ravalement, clôture, fenêtres), ni la plupart
+              des petites extensions de maison.</li>
+            <li>L'état d'avancement (commencé, terminé, annulé) n'est pas toujours mis à jour : un chantier achevé peut rester « autorisé ».</li>
+            <li data-info="non-localisees"></li>
+          </ul>
+          <div id="liste-non-localisees"></div>
+        </div>
+        <p class="sources">Autorisations : base SITADEL, service statistique du ministère chargé du logement (SDES).
+          Parcelles : plan cadastral de la DGFiP diffusé par Etalab. Adresses et fonds de carte : IGN, Géoplateforme
+          (Base Adresse Nationale) ; les adresses saisies sont envoyées au service de géocodage de l'IGN.
+          Site mis à jour le <span data-info="genere"></span>.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="pied">
+    <span>argos · projet personnel, sans lien avec la Ville de <span data-info="commune">Montreuil</span> ni avec une administration.</span>
+    <span class="mono">Données publiques · Licence Ouverte 2.0</span>
+  </footer>
+</div>
+
+<!-- Écran 2 · Résultat : liste et carte -->
+<div class="appli vue-split" id="appli" hidden>
+  <header class="entete">
+    <a class="titre" href="#" aria-label="Argos, accueil">
+      <svg class="logo" width="28" height="28" viewBox="0 0 30 30" aria-hidden="true">
+        <circle cx="15" cy="15" r="3.6" fill="currentColor"/>
+        <circle cx="15" cy="15" r="8.4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <circle cx="15" cy="15" r="13.2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-opacity=".45"/>
+      </svg>
+      <span class="titre-texte">
+        <span class="marque">argos</span>
+        <span class="sous-marque">Autorisations d'urbanisme à <span data-info="commune">Montreuil</span></span>
+      </span>
+    </a>
+    <form class="recherche" id="form-recherche" role="search" autocomplete="off">
+      <label for="adresse" class="sr">Rechercher une adresse</label>
+      <div class="barre barre-compacte">
+        <svg class="epingle" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+        <input id="adresse" type="search" placeholder="Rechercher une adresse…" spellcheck="false"
+               role="combobox" aria-autocomplete="list" aria-controls="suggestions" aria-expanded="false">
+        <button type="submit" class="bouton-principal">Rechercher</button>
+      </div>
+      <ul id="suggestions" class="suggestions" role="listbox" aria-label="Adresses proposées" hidden></ul>
+    </form>
+    <div class="segmente affichage" role="group" aria-label="Affichage">
+      <button type="button" data-affichage="split" aria-pressed="true">Liste + carte</button>
+      <button type="button" data-affichage="liste" aria-pressed="false">Liste</button>
+      <button type="button" data-affichage="carte" aria-pressed="false">Carte</button>
+    </div>
+  </header>
+  <div class="filtres" id="filtres">
+    <fieldset class="puces">
+      <legend class="sr">Types d'autorisation affichés</legend>
+      <div class="puces-liste" id="filtre-types"></div>
+    </fieldset>
+    <div class="filtre-rayon" id="filtre-rayon" hidden>
+      <span id="lbl-rayon">Rayon</span>
+      <div class="segmente" role="group" aria-labelledby="lbl-rayon" id="rayons"></div>
+    </div>
+    <label class="depuis">Depuis <select id="filtre-depuis"></select></label>
+    <span class="maj">SITADEL · mise à jour <span data-info="sitadel"></span></span>
+  </div>
+  <main class="contenu">
+    <section class="colonne-liste" id="panneau" aria-label="Autorisations">
+      <div id="vue" aria-live="polite"><p class="chargement">Chargement des données…</p></div>
+    </section>
+    <section class="carte" id="carte" aria-label="Carte des parcelles">
+      <div class="legende" id="legende" aria-label="Légende" hidden></div>
+    </section>
+    <aside class="fiche" id="fiche" aria-label="Autorisation sélectionnée" hidden></aside>
+  </main>
+</div>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Argos — Accueil</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F5F3EE}
+*{box-sizing:border-box}
+a{color:#1D2125}a:hover{color:#C2410C}
+input::placeholder{color:#6B6F75}
+a:focus-visible,button:focus-visible{outline:2px solid #1D2125;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 1760px; background: #F5F3EE; color: #1D2125; font-family: 'IBM Plex Sans', system-ui, sans-serif; display: flex; flex-direction: column">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 18px clamp(16px, 4vw, 48px); border-bottom: 1px solid #DDD9D0">
+<a href="accueil.dc.html" aria-label="Argos, accueil" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #1D2125">
+<svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="3.6" fill="#1D2125"></circle><circle cx="15" cy="15" r="8.4" fill="none" stroke="#1D2125" stroke-width="1.7"></circle><circle cx="15" cy="15" r="13.2" fill="none" stroke="#1D2125" stroke-width="1.2" stroke-opacity="0.45"></circle></svg>
+<span style="font-size: 21px; font-weight: 600; letter-spacing: -0.015em">argos</span>
+</a>
+<nav aria-label="Navigation principale" style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; font-size: 15px">
+<a href="resultat.dc.html" style="text-decoration: none">Explorer la carte</a>
+<a href="#donnees" style="text-decoration: none">Les données</a>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 6px 12px; border: 1px solid #CFCBC1; border-radius: 999px; color: #4A4E54">Pilote · Montreuil 93048</span>
+</nav>
+</header>
+
+<section style="position: relative; overflow: hidden; padding: clamp(56px, 9vw, 120px) clamp(16px, 4vw, 48px) clamp(64px, 9vw, 112px); border-bottom: 1px solid #DDD9D0">
+<svg aria-hidden="true" width="1600" height="900" viewBox="-800 -450 1600 900" style="position: absolute; left: calc(50% - 800px); top: calc(50% - 450px); pointer-events: none">
+<g fill="none" stroke-linecap="butt">
+<path d="M-800 120 L800 60" stroke="#E2DED4" stroke-width="28"></path>
+<path d="M380 -450 L470 450" stroke="#E2DED4" stroke-width="26"></path>
+<path d="M-260 -450 L-190 450" stroke="#E2DED4" stroke-width="16"></path>
+<path d="M-800 -250 L800 -310" stroke="#E2DED4" stroke-width="14"></path>
+<path d="M-800 330 L800 290" stroke="#E2DED4" stroke-width="14"></path>
+<path d="M-620 -450 L-660 450" stroke="#E2DED4" stroke-width="12"></path>
+<path d="M660 -450 L710 450" stroke="#E2DED4" stroke-width="12"></path>
+<path d="M-800 120 L800 60" stroke="#FAF9F6" stroke-width="22"></path>
+<path d="M380 -450 L470 450" stroke="#FAF9F6" stroke-width="20"></path>
+<path d="M-260 -450 L-190 450" stroke="#FAF9F6" stroke-width="11"></path>
+<path d="M-800 -250 L800 -310" stroke="#FAF9F6" stroke-width="9"></path>
+<path d="M-800 330 L800 290" stroke="#FAF9F6" stroke-width="9"></path>
+<path d="M-620 -450 L-660 450" stroke="#FAF9F6" stroke-width="7"></path>
+<path d="M660 -450 L710 450" stroke="#FAF9F6" stroke-width="7"></path>
+</g>
+<circle cx="0" cy="0" r="320" fill="none" stroke="#CFCAC0" stroke-width="1"></circle>
+<circle cx="0" cy="0" r="450" fill="none" stroke="#CFCAC0" stroke-width="1" stroke-dasharray="4 7"></circle>
+<circle cx="0" cy="0" r="600" fill="none" stroke="#CFCAC0" stroke-width="1" stroke-opacity="0.6"></circle>
+<g fill-opacity="0.55">
+<circle cx="-620" cy="-230" r="7" fill="#C2410C"></circle>
+<circle cx="-540" cy="210" r="10" fill="#0B7285"></circle>
+<circle cx="560" cy="-200" r="7" fill="#7048E8"></circle>
+<circle cx="660" cy="170" r="5" fill="#E0A100"></circle>
+<circle cx="-710" cy="20" r="4" fill="#E0A100"></circle>
+<circle cx="720" cy="-40" r="11" fill="#C2410C"></circle>
+<circle cx="500" cy="330" r="5" fill="#E0A100"></circle>
+<circle cx="-440" cy="-350" r="6" fill="#7048E8"></circle>
+<circle cx="-380" cy="340" r="12" fill="#C2410C"></circle>
+</g>
+</svg>
+
+<div style="position: relative; max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 22px">
+<p style="margin: 0; font-family: 'IBM Plex Mono', monospace; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #4A4E54">Autorisations d’urbanisme · données SITADEL</p>
+<h1 style="margin: 0; font-size: clamp(36px, 5vw, 64px); line-height: 1.04; font-weight: 600; letter-spacing: -0.025em">Qu’est-ce qui se prépare autour de cette adresse ?</h1>
+<p style="margin: 0; max-width: 620px; font-size: 18px; line-height: 1.55; color: #3F4349">Permis de construire, d’aménager, de démolir et déclarations préalables déposés autour d’une adresse, d’une parcelle ou d’un dossier.</p>
+
+<div style="width: 100%; max-width: 760px; margin-top: 10px; text-align: left">
+<label for="q-accueil" style="display: block; margin: 0 0 8px 4px; font-size: 14px; font-weight: 500; color: #3F4349">Adresse, référence cadastrale ou n° de dossier</label>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px; background: #FFFFFF; border: 1.5px solid #1D2125; border-radius: 16px; box-shadow: 0 12px 32px rgba(29, 33, 37, 0.10)">
+<div style="flex: 1 1 320px; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0 10px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4A4E54" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.6"></circle></svg>
+<input id="q-accueil" type="search" autocomplete="street-address" placeholder="Ex. 48 rue de Paris, Montreuil" value="{{ query }}" onChange="{{ onQuery }}" style="flex: 1 1 auto; min-width: 0; height: 56px; border: 0; background: transparent; font: inherit; font-size: 19px; color: #1D2125">
+</div>
+<a href="resultat.dc.html" style="flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; height: 56px; padding: 0 28px; border-radius: 10px; background: #1D2125; color: #FFFFFF; font-size: 17px; font-weight: 600; text-decoration: none">Rechercher</a>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; padding-left: 4px; font-size: 14px; color: #4A4E54">
+<span>Essayer :</span>
+<a href="resultat.dc.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 7px 11px; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 8px; text-decoration: none">48 rue de Paris</a>
+<a href="resultat.dc.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 7px 11px; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 8px; text-decoration: none">AK 0212</a>
+<a href="resultat.dc.html" style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 7px 11px; background: #FFFFFF; border: 1px solid #D6D2C8; border-radius: 8px; text-decoration: none">PC 093048 25 B0041</a>
+</div>
+</div>
+
+<a href="resultat.dc.html" style="display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 10px 4px; font-size: 16px; font-weight: 500; color: #1D2125">ou explorer directement sur la carte<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</section>
+
+<section aria-labelledby="comment" style="padding: clamp(48px, 7vw, 88px) clamp(16px, 4vw, 48px)">
+<div style="max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px">
+<h2 id="comment" style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.015em">De l’adresse au dossier, en trois temps</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 12px; padding-top: 20px; border-top: 1.5px solid #1D2125">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #4A4E54">01</span>
+<h3 style="margin: 0; font-size: 20px; font-weight: 600">Une adresse</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.55; color: #3F4349">Saisissez une adresse, une référence cadastrale ou un numéro de dossier. Argos retrouve la parcelle correspondante.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding-top: 20px; border-top: 1.5px solid #1D2125">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #4A4E54">02</span>
+<h3 style="margin: 0; font-size: 20px; font-weight: 600">Un rayon</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.55; color: #3F4349">Les autorisations dans un rayon de 150, 300 ou 500 m, classées par ampleur : les gros projets d’abord.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 12px; padding-top: 20px; border-top: 1.5px solid #1D2125">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #4A4E54">03</span>
+<h3 style="margin: 0; font-size: 20px; font-weight: 600">Chaque dossier</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.55; color: #3F4349">Nature des travaux, surface de plancher, logements créés, date de décision et parcelles concernées.</p>
+</div>
+</div>
+</div>
+</section>
+
+<section id="donnees" aria-labelledby="types" style="padding: clamp(48px, 7vw, 88px) clamp(16px, 4vw, 48px); background: #FFFFFF; border-top: 1px solid #DDD9D0; border-bottom: 1px solid #DDD9D0">
+<div style="max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px">
+<div style="display: flex; flex-direction: column; gap: 10px; max-width: 720px">
+<h2 id="types" style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.015em">Quatre types d’autorisations, quatre couleurs</h2>
+<p style="margin: 0; font-size: 16px; line-height: 1.55; color: #3F4349">Chaque type garde la même couleur partout : dans la liste, sur la carte, dans les fiches. Sur la carte, la taille d’un point indique l’ampleur du projet.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid #DDD9D0; border-radius: 14px; background: #F5F3EE">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 28px; padding: 0 8px; border-radius: 6px; background: #C2410C; color: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500">PC</span>
+<h3 style="margin: 0; font-size: 18px; font-weight: 600">Permis de construire</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3F4349">Construction neuve, extension importante, certains changements de destination.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid #DDD9D0; border-radius: 14px; background: #F5F3EE">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 28px; padding: 0 8px; border-radius: 6px; background: #0B7285; color: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500">PA</span>
+<h3 style="margin: 0; font-size: 18px; font-weight: 600">Permis d’aménager</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3F4349">Lotissements, divisions avec voies ou espaces communs, aménagements d’ensemble.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid #DDD9D0; border-radius: 14px; background: #F5F3EE">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 28px; padding: 0 8px; border-radius: 6px; background: #7048E8; color: #FFFFFF; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500">PD</span>
+<h3 style="margin: 0; font-size: 18px; font-weight: 600">Permis de démolir</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3F4349">Démolition totale ou partielle d’une construction.</p>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid #DDD9D0; border-radius: 14px; background: #F5F3EE">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 28px; padding: 0 8px; border-radius: 6px; background: #E0A100; color: #1D2125; font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 500">DP</span>
+<h3 style="margin: 0; font-size: 18px; font-weight: 600">Déclaration préalable</h3>
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3F4349">Travaux plus modestes : petite extension, façade, clôture, division simple.</p>
+</div>
+</div>
+<dl style="margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px 32px; padding-top: 24px; border-top: 1px solid #DDD9D0">
+<div><dt style="font-size: 13px; color: #4A4E54">Source</dt><dd style="margin: 4px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 14px">SITADEL — SDES</dd></div>
+<div><dt style="font-size: 13px; color: #4A4E54">Parcelles</dt><dd style="margin: 4px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 14px">Cadastre Etalab</dd></div>
+<div><dt style="font-size: 13px; color: #4A4E54">Mise à jour</dt><dd style="margin: 4px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 14px">Mensuelle · dernière : [mois année]</dd></div>
+<div><dt style="font-size: 13px; color: #4A4E54">Couverture</dt><dd style="margin: 4px 0 0; font-family: 'IBM Plex Mono', monospace; font-size: 14px">Montreuil (93048) — pilote</dd></div>
+</dl>
+</div>
+</section>
+
+<footer style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 28px clamp(16px, 4vw, 48px); font-size: 14px; color: #4A4E54">
+<span>argos — projet personnel, sans lien avec une administration.</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px">Données publiques · Licence Ouverte</span>
+</footer>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var self = this;
+    var s = this.state || {};
+    return {
+      query: s.query !== undefined ? s.query : '',
+      onQuery: function (e) { self.setState({ query: e.target.value }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
