@@ -8,9 +8,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://data.geopf.fr; connect-src 'self' https://data.geopf.fr; worker-src blob:; child-src blob:; font-src 'self'">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous" defer></script>
-<script src="app.js?v=22" defer></script>
+<script src="app.js?v=23" defer></script>
 </head>
 <body>
 
@@ -125,38 +125,11 @@
       </div>
     </section>
 
-    <section class="donnees" id="donnees" aria-labelledby="titre-types">
+    <section class="donnees" id="donnees" aria-labelledby="titre-donnees">
       <div class="largeur">
         <div class="intro">
-          <h2 id="titre-types">Quatre types d'autorisations, quatre couleurs</h2>
-          <p>Chaque type garde la même couleur partout : dans la liste, les filtres et les fiches.</p>
+          <h2 id="titre-donnees">Les données</h2>
           <p data-info="bilan"></p>
-        </div>
-        <div class="types">
-          <article class="type-carte" data-type="PC">
-            <span class="badge">PC</span>
-            <h3>Permis de construire</h3>
-            <p>Construction neuve, extension importante, certains changements de destination.</p>
-            <p class="compte" data-compte="PC"></p>
-          </article>
-          <article class="type-carte" data-type="PA">
-            <span class="badge">PA</span>
-            <h3>Permis d'aménager</h3>
-            <p>Lotissements, divisions avec voies ou espaces communs, aménagements d'ensemble.</p>
-            <p class="compte" data-compte="PA"></p>
-          </article>
-          <article class="type-carte" data-type="PD">
-            <span class="badge">PD</span>
-            <h3>Permis de démolir</h3>
-            <p>Démolition totale ou partielle d'une construction.</p>
-            <p class="compte" data-compte="PD"></p>
-          </article>
-          <article class="type-carte" data-type="DP">
-            <span class="badge">DP</span>
-            <h3>Déclaration préalable</h3>
-            <p>Travaux plus modestes : petite extension, changement de destination. Seules celles qui créent un logement ou de la surface figurent ici.</p>
-            <p class="compte" data-compte="DP"></p>
-          </article>
         </div>
         <dl class="meta">
           <div><dt>Source</dt><dd>SITADEL · SDES</dd></div>

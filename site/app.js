@@ -20,7 +20,8 @@ const ENCRE = "#1d2125";       // adresse choisie, rayon, parcelle choisie (la c
 const SURLIGNAGE = "#ffe600";  // autorisation sélectionnée dans la liste
 const TYPES = {PC: "permis de construire", DP: "déclaration préalable", PA: "permis d'aménager", PD: "permis de démolir"};
 const TYPES_PLURIEL = {PC: "permis de construire", DP: "déclarations préalables", PA: "permis d'aménager", PD: "permis de démolir"};
-const TYPES_COURTS = {PC: "Construire", PA: "Aménager", PD: "Démolir", DP: "Déclaration préalable"};  // ordre des puces
+const ORDRE_TYPES = ["PC", "DP", "PD", "PA"];  // puces et légende des sigles, du plus fréquent au plus rare
+const PRECISIONS = {DP: "pour les petits travaux", PA: "pour un lotissement"};  // ce que le nom officiel ne dit pas
 const TRANSPARENT = "rgba(0,0,0,0)";
 const PETIT_ECRAN = matchMedia("(max-width: 820px)");
 
@@ -187,6 +188,12 @@ function rechercher(lon0, lat0, rayon) {
 }
 
 /* ---------- Rendu de la liste ---------- */
+
+const nomComplet = t => `${TYPES[t][0].toUpperCase()}${TYPES[t].slice(1)}${PRECISIONS[t] ? `, ${PRECISIONS[t]}` : ""}`;
+
+function legendeSigles() {  // ce que veulent dire PC, DP, PD, PA, une fois, là où on les lit
+  return `<p class="sigles">${ORDRE_TYPES.map(t => `<span><span class="badge" data-type="${t}">${t}</span> ${esc(TYPES[t])}${PRECISIONS[t] ? `, ${PRECISIONS[t]}` : ""}</span>`).join("")}</p>`;
+}
 
 function tuile(valeur, libelle) {
   return `<div class="tuile"><span class="valeur">${valeur}</span><span class="libelle">${libelle}</span></div>`;
@@ -355,6 +362,7 @@ function vueCommune() {  // carte de toute la commune, sans adresse
     </div>
     <p class="precision-chiffres">${parType.map(([t, n]) => `${nombre.format(n)} ${nomType(t, n)}`).join(" · ")}.
       Logements et surfaces hors autorisations annulées.</p>
+    ${legendeSigles()}
     <p class="note"><a href="#donnees">Ce que contiennent les données, et ce qu'elles ne contiennent pas</a></p>`;
 }
 
@@ -375,9 +383,6 @@ function remplirAccueil() {  // chiffres et dates de l'accueil, lus dans les don
       (ni adresse exploitable, ni parcelle retrouvée).`,
   };
   document.querySelectorAll("[data-info]").forEach(el => { if (el.dataset.info in info) el.textContent = info[el.dataset.info]; });
-  document.querySelectorAll("[data-compte]").forEach(el => {
-    el.textContent = `${pluriel(dossiers.filter(d => d.type === el.dataset.compte).length, "autorisation")} depuis ${meta.premiere_annee}`;
-  });
   document.getElementById("liste-non-localisees").innerHTML = n
     ? `<details><summary>${n > 1 ? "Voir les autorisations non localisées" : "Voir l'autorisation non localisée"}</summary>${listeDossiers(nonLocalises)}</details>` : "";
 }
@@ -409,6 +414,7 @@ function vueParcelle(id) {
     <div class="actions">
       <button class="action" data-action="rayon-parcelle">Autorisations dans un rayon de ${etat.rayon} m</button>
     </div>
+    ${legendeSigles()}
     <h3>${liste.length ? "Autorisations sur cette parcelle" : "Aucune autorisation recensée sur cette parcelle"}</h3>
     ${liste.length ? listeDossiers(liste, d => ({origine: origineDans(d, id)})) : ""}`;
 }
@@ -459,6 +465,7 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
         <button class="action" data-action="csv">Télécharger le tableau (CSV)</button>
         <button class="action" data-action="lien">Copier le lien</button>
       </div>
+      ${legendeSigles()}
     </div>
     <section class="bloc">
       <h2>${titreParcelle}</h2>
@@ -491,6 +498,7 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
       ${tuile(nombre.format(surface), "m² de surface de plancher créés")}
     </div>
     <p class="precision-chiffres">${filtres}</p>
+    ${legendeSigles()}
     <img class="impression-seule" id="carte-impression" alt="Carte : adresse recherchée et rayon de ${etat.rayon} m">
     <h3>${titreParcelle}</h3>
     ${res.auPoint.length ? listeDossiers(surParcelle) : `<p class="vide">Aucune parcelle à moins de ${TOLERANCE_VOIE} m de ce point.</p>`}
@@ -520,9 +528,9 @@ function rendreFiltres() {
   const v = etat.vue, res = etat.resultat;
   const base = res ? [...res.dansRayonTous.keys()].map(id => parId.get(id))
     : v.mode === "parcelle" ? (parParcelle.get(v.id) || []).filter(dansPeriode) : dossiers.filter(dansPeriode);
-  document.getElementById("filtre-types").innerHTML = Object.entries(TYPES_COURTS).map(([t, nom]) => `
-    <button type="button" class="puce" data-type="${t}" aria-pressed="${etat.types.has(t)}" title="${esc(TYPES[t])}">
-      <span class="code">${t}</span><span>${nom}</span><span class="compte">${nombre.format(base.filter(d => d.type === t).length)}</span>
+  document.getElementById("filtre-types").innerHTML = ORDRE_TYPES.map(t => `
+    <button type="button" class="puce" data-type="${t}" aria-pressed="${etat.types.has(t)}" title="${esc(nomComplet(t))}">
+      <span class="code">${t}</span><span class="sr">${esc(TYPES[t])}</span><span class="compte">${nombre.format(base.filter(d => d.type === t).length)}</span>
     </button>`).join("");
   document.getElementById("filtre-rayon").hidden = !res;
   document.getElementById("rayons").innerHTML = RAYONS.map(r =>

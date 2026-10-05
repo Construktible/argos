@@ -151,12 +151,12 @@ button, input, select { font: inherit; color: inherit; }
 }
 .puces { min-width: 0; margin: 0; padding: 0; border: 0; }
 .puces-liste { display: flex; flex-wrap: wrap; gap: 8px; }
-.puce {
+.puce {  /* sigle et nombre ; le nom complet en infobulle, la légende sous les actions */
   display: inline-flex;
   align-items: center;
   gap: 8px;
   height: 40px;
-  padding: 0 14px 0 6px;
+  padding: 0 12px 0 6px;
   border: 1px solid var(--trait-fort);
   border-radius: 999px;
   background: transparent;
@@ -209,6 +209,11 @@ button, input, select { font: inherit; color: inherit; }
 .tuile .valeur { display: block; font-size: 1.45rem; font-weight: 600; line-height: 1.2; letter-spacing: -.02em; }
 .tuile .libelle { display: block; font-size: .78rem; color: var(--encre-2); line-height: 1.3; margin-top: 2px; }
 .precision-chiffres { font-size: .8rem; color: var(--encre-3); margin-top: 4px; }
+
+/* Légende des sigles, sous les actions */
+#vue .sigles { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 4px 0 0; font-size: 13px; color: var(--encre-2); }
+.sigles > span { display: inline-flex; align-items: center; gap: 6px; }
+.sigles .badge { min-width: 28px; height: 20px; padding: 0 5px; font-size: 11px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 
 /* Actions : impression, tableau, lien */
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 8px; }
@@ -547,12 +552,7 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 .donnees .largeur { gap: 32px; }
 .intro { display: flex; flex-direction: column; gap: 10px; max-width: 720px; }
 .intro p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--encre-2); }
-.types { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.type-carte { display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 1px solid var(--trait); border-radius: 14px; background: var(--fond-page); }
-.type-carte h3 { margin: 0; font-size: 18px; font-weight: 600; }
-.type-carte p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--encre-2); }
-.type-carte .compte { margin-top: auto; font-family: var(--mono); font-size: 13px; color: var(--encre-3); }
-.badge {
+.badge {  /* sigle du type, dans sa couleur */
   align-self: flex-start;
   display: inline-flex;
   align-items: center;
