@@ -15,6 +15,7 @@ const TOLERANCE_VOIE = 25;  // m : distance max entre le point de l'adresse et l
 const RENTREE = 0.5;        // m : le point rapproché est placé à cette distance à l'intérieur du contour
 const VOISINAGE = 10;       // m : au-delà de la parcelle la plus proche, parcelles dites voisines
 const RAYONS = [100, 200, 300, 500];
+const ANS_RECENTS = 5;  // période par défaut : les 5 dernières années des données, l'historique complet reste à un clic
 const COULEUR_AUTORISATION = "#2a78d6";  // parcelles du rayon portant au moins une autorisation
 const ENCRE = "#1d2125";       // adresse choisie, rayon, parcelle choisie (la carte reste claire en mode sombre)
 const SURLIGNAGE = "#ffe600";  // autorisation sélectionnée dans la liste
@@ -28,12 +29,15 @@ const PETIT_ECRAN = matchMedia("(max-width: 820px)");
 const etat = {types: new Set(Object.keys(TYPES)), depuis: 0, rayon: 300, vue: null, resultat: null, photo: false,
   tri: "ampleur", affichage: "split",  // tri de la liste du rayon ; affichage : liste + carte, liste seule, carte seule
   surligne: null, survol: null,  // autorisation sélectionnée (fixe) et autorisation survolée dans la liste
-  pointee: null};                // parcelle survolée sur la carte : ses autorisations sont mises en avant dans la liste
+  pointee: null,                 // parcelle survolée sur la carte : ses autorisations sont mises en avant dans la liste
+  parcelle: null,                // parcelle cliquée sur la carte : sa fiche s'ouvre en surimpression
+  retourParcelle: null};         // autorisation ouverte depuis une fiche de parcelle : bouton de retour vers celle-ci
 const toutes = new Map();          // idu -> {geom, emprise, actuelle, contenance | premier, dernier, successeurs}
 const predecesseurs = new Map();   // idu actuelle -> [idu anciennes]
 const parParcelle = new Map();     // idu actuelle -> [dossiers]
 const parId = new Map();
 let meta, dossiers, geoParcelles, geoAnciennes, carte, marqueur, infobulle;
+let debutRecent;  // première année de la période par défaut
 let cartePrete = false;  // nos couches ajoutées ; isStyleLoaded() reste faux tant qu'une icône du fond IGN manque
 
 /* ---------- Mise en forme ---------- */
@@ -169,11 +173,12 @@ function rechercher(lon0, lat0, rayon) {
   }
 
   const ensemble = new Set(auPoint), distances = new Map(), surParcelle = new Set();
+  let plusAnciennes = 0;  // dossiers du rayon écartés par la seule période
   for (const d of dossiers) {
-    if (!dansPeriode(d)) continue;
     let dist = Infinity;
     if (d.localisation === "adresse" || d.localisation === "voie") dist = Math.hypot((d.lon - lon0) * kx, (d.lat - lat0) * ky);
     else for (const p of d.parcelles) if (proches.has(p)) dist = Math.min(dist, proches.get(p)[0]);
+    if (!dansPeriode(d)) { if (dist <= rayon && etat.types.has(d.type)) plusAnciennes++; continue; }
     if (dist <= marge) distances.set(d.id, dist);
     if (d.parcelles.some(p => ensemble.has(p)) || d.actuelles.some(p => ensemble.has(p))) surParcelle.add(d.id);
   }
@@ -184,21 +189,61 @@ function rechercher(lon0, lat0, rayon) {
   for (const id of surParcelle) if (!typeAffiche(id)) surParcelle.delete(id);
   const dansRayonTous = new Map([...distances].filter(([, x]) => x <= rayon));
   const dansRayon = new Map([...dansRayonTous].filter(([id]) => typeAffiche(id)));
-  return {auPoint, rapproche, surParcelle, voisines, dansRayon, dansRayonTous};
+  return {auPoint, rapproche, surParcelle, voisines, dansRayon, dansRayonTous, plusAnciennes};
 }
 
 /* ---------- Rendu de la liste ---------- */
 
+function sigleType(t, classe = "badge") {  // sigle du type dans sa couleur ; les lecteurs d'écran lisent le nom complet
+  return `<span class="${classe}" data-type="${t}" title="${esc(TYPES[t])}"><span aria-hidden="true">${t}</span><span class="sr">${esc(TYPES[t])}</span></span>`;
+}
+
 function legendeSigles(filtre = true) {  // ce que veulent dire PC, DP, PD, PA ; à l'écran, un clic masque ou réaffiche le type
   const nom = t => `${esc(TYPES[t])}${PRECISIONS[t] ? ` (${PRECISIONS[t]})` : ""}`;
   if (!filtre) return `<p class="sigles">${ORDRE_TYPES.map(t => `<span><span class="badge" data-type="${t}">${t}</span> ${nom(t)}</span>`).join("")}</p>`;
-  return `<div class="sigles" role="group" aria-label="Types d'autorisation affichés">${ORDRE_TYPES.map(t => `
+  return `<div class="sigles" role="group" aria-labelledby="titre-sigles"><span class="sigles-titre" id="titre-sigles">Afficher :</span>${ORDRE_TYPES.map(t => `
     <button type="button" class="sigle" data-type="${t}" aria-pressed="${etat.types.has(t)}" title="Afficher ou masquer : ${esc(TYPES[t])}">
-      <span class="badge" data-type="${t}">${t}</span><span class="nom">${nom(t)}</span></button>`).join("")}</div>`;
+      <span class="badge" data-type="${t}" aria-hidden="true">${t}</span><span class="nom">${nom(t)}</span></button>`).join("")}</div>`;
+}
+
+const LIMITES = [  // ce que SITADEL ne contient pas : détail de la mise en garde du rapport
+  "Un projet déposé récemment peut être en cours d'instruction sans figurer ici.",
+  "Une autorisation n'apparaît qu'un mois environ après la décision, parfois plus.",
+  "Seuls figurent les projets qui créent des logements ou de la surface de plancher, et les permis d'aménager et de démolir : "
+    + "pas les petits travaux (ravalement, clôture, fenêtres), ni la plupart des petites extensions de maison.",
+  "L'état d'avancement (commencé, terminé, annulé) n'est pas toujours mis à jour.",
+];
+
+function limitesRapport(n, imprime = false) {  // sous le chiffre clé ; quand rien n'est trouvé, rappeler que l'absence ne prouve rien
+  const phrase = n ? "Seules les autorisations accordées figurent ici : ni les demandes en cours d'instruction, ni les refus."
+    : "Cela ne garantit pas qu'aucun projet ne viendra : seules les autorisations accordées figurent ici, ni les demandes en cours d'instruction, ni les refus.";
+  const detail = `<ul>${LIMITES.map(l => `<li>${esc(l)}</li>`).join("")}</ul>`;
+  if (imprime) return `<div class="limites-rapport"><p>${phrase}</p>${detail}</div>`;
+  return `<details class="limites-rapport"><summary>${phrase} <span class="plus">Ce que les données ne disent pas</span></summary>${detail}</details>`;
 }
 
 function tuile(valeur, libelle) {
   return `<div class="tuile"><span class="valeur">${valeur}</span><span class="libelle">${libelle}</span></div>`;
+}
+
+function lienPeriode(nAnciennes) {  // un clic pour l'historique complet, ou pour revenir à la période par défaut
+  const premiere = Number(meta.premiere_annee);
+  if (etat.depuis < debutRecent) return `<button type="button" class="lien-periode" data-depuis="${debutRecent}">N'afficher que les autorisations depuis ${debutRecent}</button>`;
+  if (!nAnciennes) return "";
+  const annees = etat.depuis - 1 > premiere ? `de ${premiere} à ${etat.depuis - 1}` : `de ${premiere}`;
+  return `<button type="button" class="lien-periode" data-depuis="${premiere}">Afficher aussi ${nAnciennes > 1
+    ? `les ${nombre.format(nAnciennes)} autorisations ${annees}` : "l'autorisation plus ancienne"}</button>`;
+}
+
+function autorisationsParcelle(id) {  // [autorisations de la période, récentes d'abord ; nombre d'autres écartées par la seule période]
+  const ds = (parParcelle.get(id) || []).filter(d => etat.types.has(d.type));
+  const liste = ds.filter(dansPeriode).sort(parDateDesc);
+  return [liste, ds.length - liste.length];
+}
+
+function nombreAutorisations(liste, anciennes) {  // « 2 autorisations depuis 2021 », « Aucune autorisation depuis 2021 » ou « Aucune autorisation recensée »
+  if (liste.length) return `${pluriel(liste.length, "autorisation")} depuis ${etat.depuis}`;
+  return anciennes ? `Aucune autorisation depuis ${etat.depuis}` : "Aucune autorisation recensée";
 }
 
 const REGISTRE = new Set(["Numéro", "Références cadastrales"]);  // champs du registre, en chasse fixe
@@ -229,10 +274,10 @@ function htmlDossier(d, {distance = null, origine = ""} = {}) {  // ligne dépli
   const approx = d.localisation === "voie" ? "≈ " : "";
   const ligne = [dateFr(d.date_autorisation), d.etat].filter(Boolean).join(" · ");
   return `<li class="dossier${d.etat === "annulé" ? " annule" : ""}" data-id="${esc(d.id)}"><details><summary>
-      <span class="type" data-type="${d.type}" title="${esc(TYPES[d.type])}">${d.type}</span>
+      ${sigleType(d.type, "type")}
       <span class="ligne1">${esc(ligne)}</span>
       <span class="distance">${distance === null ? "" : `${approx}${nombre.format(Math.round(distance))} m`}</span>
-      <span class="adresse">${esc(d.adresse || "Adresse non renseignée")}</span>
+      <span class="adresse">${esc(adresseLisible(d.adresse || "Adresse non renseignée"))}</span>
       <span class="projet">${esc([projet(d), d.demandeur].filter(Boolean).join(" · "))}</span>
       ${origine ? `<span class="origine">${esc(origine)}</span>` : ""}
     </summary><dl>${detailsDossier(d)}</dl></details></li>`;
@@ -260,7 +305,7 @@ function enteteGroupe(adresse, ds, proche, lisible = false) {
 function parAdresse(liste, distances) {  // version imprimable
   if (!liste.length) return `<p class="vide">Aucune autorisation avec les filtres actuels.</p>`;
   return grouperParAdresse(liste, distances).map(([adresse, ds, proche]) => `
-    <section class="groupe"><h4>${enteteGroupe(adresse, ds, proche)}</h4>${listeDossiers(ds)}</section>`).join("");
+    <section class="groupe"><h4>${enteteGroupe(adresse, ds, proche, true)}</h4>${listeDossiers(ds)}</section>`).join("");
 }
 
 /* Liste compacte du rapport : une ligne par dossier ; la sélection surligne ses parcelles et ouvre la fiche */
@@ -308,32 +353,36 @@ function valeursADroite(d, distance) {  // [ligne 1, ligne 2] à droite de la li
   return [distance === null ? "" : `${d.localisation === "voie" ? "≈ " : ""}${nombre.format(Math.round(distance))} m`, ""];
 }
 
-function htmlLigneDossier(d, distance = null, sansAdresse = false) {
+function htmlLigneDossier(d, distance = null, sansAdresse = false, origine = "") {
   const [droite1, droite2] = valeursADroite(d, distance);
   const chiffres = etat.tri !== "ampleur" ? chiffresDossier(d, true)  // en tri par ampleur, surface et logements sont déjà à droite
     : surfaceCreee(d) > 0 && surfaceDemolie(d) > 0 ? `${nombre.format(surfaceDemolie(d))} m² démolis` : "";
   const ligne2 = [!sansAdresse && adresseLisible(d.adresse || "Adresse non renseignée"), decisionDossier(d, true)].filter(Boolean).join(" · ");
   const titreDroite = etat.tri === "ampleur" && surfaceCreee(d) === 0 && surfaceDemolie(d) > 0 ? ` title="Surface démolie"` : "";
   return `<li><button type="button" class="ligne-dossier${d.etat === "annulé" ? " annule" : ""}" data-id="${esc(d.id)}" aria-pressed="${d.id === etat.surligne}">
-    <span class="badge" data-type="${d.type}" title="${esc(TYPES[d.type])}">${d.type}</span>
+    ${sigleType(d.type)}
     <span class="l1"><span class="titre-dossier">${esc(projet(d).split(" · ")[0] || TYPES[d.type])}</span>${chiffres ? `<span class="detail"> · ${esc(chiffres)}</span>` : ""}</span>
     <span class="droite"${titreDroite}>${esc(droite1)}</span>
     <span class="l2">${esc(ligne2)}</span>
     <span class="droite-2">${esc(droite2)}</span>
+    ${origine ? `<span class="l3">${esc(origine)}</span>` : ""}
   </button></li>`;
 }
 
-function lignes(liste, distance = () => null, sansAdresse = false) {
-  return `<ul class="liste-dossiers">${liste.map(d => htmlLigneDossier(d, distance(d), sansAdresse)).join("")}</ul>`;
+function lignes(liste, distance = () => null, sansAdresse = false, origine = () => "") {  // origine : déposée sous un ancien numéro…
+  return `<ul class="liste-dossiers">${liste.map(d => htmlLigneDossier(d, distance(d), sansAdresse, origine(d))).join("")}</ul>`;
 }
 
 function htmlFiche(d) {  // fiche du dossier sélectionné, en surimpression sur la carte
   const dist = etat.resultat?.dansRayon.get(d.id), chiffres = chiffresDossier(d);
   const decision = decisionDossier(d), quand = [decision.charAt(0).toUpperCase() + decision.slice(1), d.demandeur].filter(Boolean).join(" · ");
+  const ou = etat.resultat?.surParcelle.has(d.id) ? "sur la parcelle"  // pas « à 4 m » : la distance va du point de l'adresse, sur la voie
+    : dist === undefined ? "" : `à ${d.localisation === "voie" ? "≈ " : ""}${nombre.format(Math.round(dist))} m`;
   return `
+    ${etat.retourParcelle ? `<button type="button" class="retour" data-action="retour-parcelle">← Parcelle ${nomParcelle(etat.retourParcelle)}</button>` : ""}
     <div class="fiche-haut">
-      <span class="badge" data-type="${d.type}" title="${esc(TYPES[d.type])}">${d.type}</span>
-      ${dist === undefined ? "" : `<span class="distance">à ${d.localisation === "voie" ? "≈ " : ""}${nombre.format(Math.round(dist))} m</span>`}
+      <span class="badge" data-type="${d.type}" aria-hidden="true">${d.type}</span>
+      <span class="type-fiche">${esc(TYPES[d.type])}${ou ? `<span class="distance"> · ${ou}</span>` : ""}</span>
       <button type="button" class="fermer" data-action="fermer-fiche" aria-label="Fermer la fiche">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
       </button>
@@ -345,6 +394,26 @@ function htmlFiche(d) {  // fiche du dossier sélectionné, en surimpression sur
     <p class="registre">${registreDossier(d)}</p>
     <details><summary>Toutes les informations</summary><dl>${detailsDossier(d)}</dl></details>
     ${carteVisible() ? "" : `<button type="button" class="action" data-action="voir-carte">Voir sur la carte</button>`}`;
+}
+
+function htmlFicheParcelle(id) {  // fiche de la parcelle cliquée sur la carte : la liste et le cadrage ne changent pas
+  const p = toutes.get(id), [liste, anciennes] = autorisationsParcelle(id);
+  const {logements, surface} = totaux(liste);
+  const bilan = [nombreAutorisations(liste, anciennes), logements > 0 && pluriel(logements, "logement créé", "logements créés"),
+    surface > 0 && `${nombre.format(surface)} m² créés`].filter(Boolean).join(" · ");
+  return `
+    <div class="fiche-haut">
+      <p class="titre-dossier">Parcelle ${nomParcelle(id)}</p>
+      <button type="button" class="fermer" data-action="fermer-fiche" aria-label="Fermer la fiche">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg>
+      </button>
+    </div>
+    <p class="detail">${p.contenance ? `${nombre.format(p.contenance)} m² · ` : ""}<span class="mono">${id}</span></p>
+    ${notePredecesseurs(id)}
+    <p class="bilan">${esc(bilan)}</p>
+    ${liste.length ? lignes(liste, () => null, false, d => origineDans(d, id)) : ""}
+    ${lienPeriode(anciennes)}
+    <button type="button" class="action" data-action="rayon-parcelle">Autorisations dans un rayon de ${etat.rayon} m</button>`;
 }
 
 /* ---------- Vues : toute la commune, une parcelle, un rapport dans un rayon ---------- */
@@ -364,6 +433,7 @@ function vueCommune() {  // carte de toute la commune, sans adresse
     </div>
     <p class="precision-chiffres">${parType.map(([t, n]) => `${nombre.format(n)} ${nomType(t, n)}`).join(" · ")}.
       Logements et surfaces hors autorisations annulées.</p>
+    ${lienPeriode(dossiers.filter(d => etat.types.has(d.type) && !dansPeriode(d)).length)}
     ${legendeSigles()}
     <p class="note"><a href="#donnees">Ce que contiennent les données, et ce qu'elles ne contiennent pas</a></p>`;
 }
@@ -397,17 +467,21 @@ function origineDans(d, idParcelle) {
   return "";
 }
 
+function notePredecesseurs(id) {  // vue et fiche de la parcelle : anciens numéros, dont les autorisations sont incluses
+  const preds = (predecesseurs.get(id) || []).filter(a => toutes.has(a))
+    .map(a => `${nomParcelle(a)} (au cadastre de ${annee(toutes.get(a).premier)} à ${annee(toutes.get(a).dernier)})`);
+  return preds.length ? `<p class="note">Issue d'une division ou d'une fusion : ${preds.join(", ")}. Les autorisations
+      déposées sous ${preds.length > 1 ? "ces anciens numéros" : "cet ancien numéro"} sont incluses.</p>` : "";
+}
+
 function vueParcelle(id) {
-  const p = toutes.get(id);
-  const liste = (parParcelle.get(id) || []).filter(visible).sort(parDateDesc);
-  const preds = (predecesseurs.get(id) || []).map(a => toutes.get(a) && `${nomParcelle(a)} (au cadastre de ${annee(toutes.get(a).premier)} à ${annee(toutes.get(a).dernier)})`);
+  const p = toutes.get(id), [liste, anciennes] = autorisationsParcelle(id);
   const {logements, surface} = totaux(liste);
   return `
     <button class="retour" data-action="commune">← Toute la commune</button>
     <h2>Parcelle ${nomParcelle(id)}</h2>
     <p class="sous-titre">${p.contenance ? `${nombre.format(p.contenance)} m² · ` : ""}<span class="mono">${id}</span></p>
-    ${preds.length ? `<p class="note">Issue d'une division ou d'une fusion : ${preds.join(", ")}. Les autorisations
-      déposées sous ${preds.length > 1 ? "ces anciens numéros" : "cet ancien numéro"} sont incluses.</p>` : ""}
+    ${notePredecesseurs(id)}
     ${liste.length ? `<div class="chiffres">
       ${tuile(nombre.format(liste.length), liste.length > 1 ? "autorisations" : "autorisation")}
       ${tuile(nombre.format(logements), "logements créés")}
@@ -417,8 +491,9 @@ function vueParcelle(id) {
       <button class="action" data-action="rayon-parcelle">Autorisations dans un rayon de ${etat.rayon} m</button>
     </div>
     ${legendeSigles()}
-    <h3>${liste.length ? "Autorisations sur cette parcelle" : "Aucune autorisation recensée sur cette parcelle"}</h3>
-    ${liste.length ? listeDossiers(liste, d => ({origine: origineDans(d, id)})) : ""}`;
+    <h3>${liste.length ? `Autorisations sur cette parcelle depuis ${etat.depuis}` : `${nombreAutorisations(liste, anciennes)} sur cette parcelle`}</h3>
+    ${liste.length ? listeDossiers(liste, d => ({origine: origineDans(d, id)})) : ""}
+    ${lienPeriode(anciennes)}`;
 }
 
 function autourDe(v) {
@@ -446,11 +521,11 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
     ? ` <span class="note">(et ancienne${anciennesAuPoint.length > 1 ? "s" : ""} ${anciennesAuPoint.join(", ")})</span>` : ""}`;
   const distance = d => res.dansRayon.get(d.id) ?? null;
   const notePied = `≈ : autorisation localisée à la rue seulement. Distances mesurées jusqu'au contour des parcelles.
-      Seules les autorisations accordées qui créent des logements ou de la surface de plancher, et les permis d'aménager
-      et de démolir, figurent dans la source. Données ${esc(meta.sitadel)}.`;
+      Données SITADEL de ${moisFr(meta.sitadel)}.`;
+  const typesMasques = etat.types.size < Object.keys(TYPES).length;
 
   let liste;
-  if (!enRayon.length) liste = `<p class="vide-bloc">Aucune autorisation ne correspond. Élargissez le rayon, changez de période ou réactivez un type.</p>`;
+  if (!enRayon.length) liste = `<p class="vide-bloc">Élargissez le rayon ou la période${typesMasques ? ", ou réaffichez les types masqués" : ""}.</p>`;
   else if (etat.tri === "distance") liste = grouperParAdresse(enRayon, res.dansRayon).map(([adresse, ds, proche]) => `
       <section class="groupe-adresse"><h3>${enteteGroupe(adresse, ds, proche, true)}</h3>${lignes(ds, distance, true)}</section>`).join("");
   else liste = lignes([...enRayon].sort(TRIS[etat.tri].ordre), distance);
@@ -459,7 +534,9 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
     <div class="resume">
       <button class="retour" data-action="commune">← Toute la commune</button>
       <p class="surtitre">${esc(autourDe(v))}</p>
-      <h1 class="synthese">${enRayon.length ? pluriel(enRayon.length, "autorisation") : "Aucune autorisation"} à moins de ${etat.rayon} m</h1>
+      <h1 class="synthese">${enRayon.length ? pluriel(enRayon.length, "autorisation") : "Aucune autorisation"} depuis ${etat.depuis} à moins de ${etat.rayon}&nbsp;m</h1>
+      ${lienPeriode(res.plusAnciennes)}
+      ${limitesRapport(enRayon.length)}
       ${approximative}${horsCommune}
       <details class="menu-rapport">
         <summary>Éditer un rapport</summary>
@@ -474,18 +551,19 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
     <section class="bloc">
       <h2>${esc(v.libelle)}</h2>
       ${!res.auPoint.length ? `<p class="vide">Aucune parcelle à moins de ${TOLERANCE_VOIE} m de ce point.</p>`
-        : surParcelle.length ? lignes(surParcelle) : `<p class="vide">Aucune autorisation sur cette parcelle avec les filtres actuels.</p>`}
+        : surParcelle.length ? lignes(surParcelle)
+        : `<p class="vide">Aucune autorisation sur cette parcelle depuis ${etat.depuis}${typesMasques ? " pour les types affichés" : ""}.</p>`}
     </section>
     ${voisines.length ? `<section class="bloc"><h2>Sur les parcelles voisines <span class="note">(moins de ${VOISINAGE} m)</span></h2>${lignes(voisines, distance)}</section>` : ""}
     <section class="bloc">
       <div class="tri-barre">
         <h2>Dans le rayon de ${etat.rayon} m</h2>
         <div class="tri">
-          <span class="aide">${TRIS[etat.tri].aide}</span>
           <span id="lbl-tri">Trier par</span>
           <div class="segmente" role="group" aria-labelledby="lbl-tri">
             ${Object.entries(TRIS).map(([k, t]) => `<button type="button" data-tri="${k}" aria-pressed="${k === etat.tri}">${t.libelle}</button>`).join("")}
           </div>
+          <span class="aide">${TRIS[etat.tri].aide}</span>
         </div>
       </div>
       ${liste}
@@ -502,6 +580,7 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
       ${tuile(nombre.format(surface), "m² de surface de plancher créés")}
     </div>
     <p class="precision-chiffres">${filtres}</p>
+    ${limitesRapport(enRayon.length, true)}
     ${legendeSigles(false)}
     <img class="impression-seule" id="carte-impression" alt="Carte : adresse recherchée et rayon de ${etat.rayon} m">
     <h3>${titreParcelle}</h3>
@@ -518,11 +597,12 @@ function rendre() {
   const v = etat.vue;
   if (v.mode === "parcelle" && !toutes.has(v.id)) etat.vue = {mode: "commune"};
   etat.resultat = null;
-  etat.surligne = etat.survol = etat.pointee = null;
+  etat.surligne = etat.survol = etat.pointee = etat.parcelle = etat.retourParcelle = null;
   document.getElementById("vue").innerHTML = etat.vue.mode === "commune" ? vueCommune()
     : etat.vue.mode === "parcelle" ? vueParcelle(etat.vue.id) : vueRapport(etat.vue);
   rendreFiltres();
   majFiche();
+  annoncer(annonceVue());
   if (cartePrete) majCarte();
 }
 
@@ -539,8 +619,10 @@ function initFiltres() {
   const derniere = Math.max(...dossiers.map(d => Number(annee(d.date_autorisation)) || 0));
   const choix = document.getElementById("filtre-depuis");
   for (let a = Number(meta.premiere_annee); a <= derniere; a++) choix.add(new Option(String(a), String(a)));
-  etat.depuis = Number(meta.premiere_annee);
-  choix.addEventListener("change", () => { etat.depuis = Number(choix.value); rendre(); });
+  debutRecent = Math.max(Number(meta.premiere_annee), derniere - ANS_RECENTS);
+  etat.depuis = debutRecent;
+  choix.value = String(debutRecent);
+  choix.addEventListener("change", () => changerPeriode(Number(choix.value)));
   document.getElementById("filtres").addEventListener("click", e => {
     const rayon = e.target.closest("[data-rayon]");
     if (rayon) {
@@ -549,6 +631,14 @@ function initFiltres() {
       rapportAutourDe(v.lon, v.lat, v.libelle, v.precision, v.commune);
     }
   });
+}
+
+function changerPeriode(a) {  // sélecteur « Depuis » ou lien de période ; la fiche de parcelle ouverte le reste
+  const parcelle = etat.parcelle;
+  etat.depuis = a;
+  document.getElementById("filtre-depuis").value = String(a);
+  rendre();
+  if (parcelle) ouvrirParcelle(parcelle);
 }
 
 /* ---------- Affichage : liste + carte, liste seule, carte seule ---------- */
@@ -572,12 +662,16 @@ function choisirAffichage(a) {
 }
 
 function initAffichage() {  // sur petit écran, la liste d'abord ; la carte s'ouvre par le sélecteur
-  choisirAffichage(PETIT_ECRAN.matches ? "liste" : "split");
+  let impose = PETIT_ECRAN.matches;  // « Liste » imposée par la largeur : « Liste + carte » revient quand la fenêtre s'élargit
+  choisirAffichage(impose ? "liste" : "split");
   document.querySelector(".affichage").addEventListener("click", e => {
     const b = e.target.closest("[data-affichage]");
-    if (b) choisirAffichage(b.dataset.affichage);
+    if (b) { impose = false; choisirAffichage(b.dataset.affichage); }
   });
-  PETIT_ECRAN.addEventListener("change", e => { if (e.matches && etat.affichage === "split") choisirAffichage("liste"); });
+  PETIT_ECRAN.addEventListener("change", e => {
+    if (e.matches && etat.affichage === "split") { impose = true; choisirAffichage("liste"); }
+    else if (!e.matches && impose && etat.affichage === "liste") { impose = false; choisirAffichage("split"); }
+  });
 }
 
 /* ---------- Carte ---------- */
@@ -604,7 +698,7 @@ function majCarte() {
 
 function majLegende(anciennes) {  // seulement ce qui peut apparaître sur la carte dans la vue actuelle
   const v = etat.vue, res = etat.resultat, lignes = [];
-  if (res) lignes.push(["autorisee", "Parcelle avec au moins une autorisation"], ["rayon", `Rayon de ${etat.rayon} m`],
+  if (res) lignes.push(["autorisee", `Parcelle avec au moins une autorisation depuis ${etat.depuis}`], ["rayon", `Rayon de ${etat.rayon} m`],
     ["choix", "Adresse et parcelle choisies"]);
   if (v?.mode === "parcelle") lignes.push(["choix", "Parcelle choisie"]);
   if (anciennes) lignes.push(["ancienne", "Ancienne parcelle"]);
@@ -629,32 +723,71 @@ function appliquerSurlignage() {  // parcelles des autorisations sélectionnée 
     .map(d => ({type: "Feature", properties: {}, geometry: {type: "Point", coordinates: [d.lon, d.lat]}}))});
 }
 
-function selectionner(id) {  // clic sur une carte de dossier : sélection, ou désélection si elle l'était déjà
+function selectionner(id, depuisParcelle = null) {  // clic sur une ligne d'autorisation : sélection, ou désélection si elle l'était déjà
   etat.surligne = etat.surligne === id ? null : id;
+  etat.retourParcelle = etat.surligne ? depuisParcelle : null;
+  if (etat.surligne) etat.parcelle = null;  // une seule fiche à la fois
   appliquerSurlignage();
   majFiche();
   if (etat.surligne) montrerSurCarte(parId.get(etat.surligne));
 }
 
-function montrerSurCarte(d, forcer = false) {  // fait glisser la carte si les parcelles du dossier sont cachées par la fiche ou hors champ
-  if (!cartePrete || !carteVisible()) return;
-  const bornes = d.actuelles.map(p => toutes.get(p)?.emprise).filter(Boolean);
-  if (!bornes.length && d.lon !== null) bornes.push([d.lon, d.lat, d.lon, d.lat]);
-  if (!bornes.length) return;
-  const b = [Math.min(...bornes.map(e => e[0])), Math.min(...bornes.map(e => e[1])), Math.max(...bornes.map(e => e[2])), Math.max(...bornes.map(e => e[3]))];
-  const zone = carte.getContainer().getBoundingClientRect(), fiche = document.getElementById("fiche").getBoundingClientRect();
-  const bas = fiche.height && fiche.top < zone.bottom ? zone.bottom - fiche.top + 16 : 40;  // la fiche couvre le bas de la carte
-  const [p0, p1] = [carte.project([b[0], b[3]]), carte.project([b[2], b[1]])];  // coins haut-gauche et bas-droit, en pixels
-  if (!forcer && p0.x >= 40 && p0.y >= 40 && p1.x <= zone.width - 56 && p1.y <= zone.height - bas) return;
-  carte.fitBounds([[b[0], b[1]], [b[2], b[3]]], {padding: {top: 40, right: 56, bottom: bas, left: 40},
-    maxZoom: forcer ? 17 : carte.getZoom(), duration: 500});
+function ouvrirParcelle(id) {  // clic sur une parcelle de la carte : sa fiche, sans zoom ni changement de liste ; un second clic la ferme
+  etat.parcelle = id && id !== etat.parcelle ? id : null;
+  etat.retourParcelle = null;
+  if (etat.parcelle) etat.surligne = null;
+  appliquerSurlignage();
+  majFiche();
+  if (etat.parcelle) montrerEmprises([toutes.get(etat.parcelle).emprise]);
 }
 
-function majFiche() {
+function montrerSurCarte(d, forcer = false) {  // parcelles du dossier, ou son point s'il n'est localisé que par l'adresse
+  const bornes = d.actuelles.map(p => toutes.get(p)?.emprise).filter(Boolean);
+  if (!bornes.length && d.lon !== null) bornes.push([d.lon, d.lat, d.lon, d.lat]);
+  montrerEmprises(bornes, forcer);
+}
+
+function montrerEmprises(bornes, forcer = false) {  // fait glisser la carte si ces emprises sont cachées par la fiche ou hors champ
+  if (!cartePrete || !carteVisible() || !bornes.length) return;
+  const b = [Math.min(...bornes.map(e => e[0])), Math.min(...bornes.map(e => e[1])), Math.max(...bornes.map(e => e[2])), Math.max(...bornes.map(e => e[3]))];
+  const zone = carte.getContainer().getBoundingClientRect(), fiche = document.getElementById("fiche").getBoundingClientRect();
+  const [p0, p1] = [carte.project([b[0], b[3]]), carte.project([b[2], b[1]])];  // coins haut-gauche et bas-droit, en pixels
+  const f = {x0: fiche.left - zone.left - 16, y0: fiche.top - zone.top - 16, x1: fiche.right - zone.left, y1: fiche.bottom - zone.top};
+  const cachee = fiche.height > 0 && p1.x > f.x0 && p0.x < f.x1 && p1.y > f.y0 && p0.y < f.y1;
+  if (!forcer && !cachee && p0.x >= 40 && p0.y >= 40 && p1.x <= zone.width - 56 && p1.y <= zone.height - 40) return;
+  const marges = {top: 40, right: 56, bottom: 40, left: 40};
+  if (fiche.height > 0 && f.y0 < zone.height && f.x0 < zone.width) {  // la fiche couvre le coin bas-droit : cadrer au-dessus, ou à sa gauche si elle est haute
+    if (f.y0 * zone.width >= f.x0 * zone.height) marges.bottom = zone.height - f.y0;
+    else marges.right = zone.width - f.x0;
+  }
+  carte.fitBounds([[b[0], b[1]], [b[2], b[3]]], {padding: marges, maxZoom: forcer ? 17 : carte.getZoom(), duration: 500});
+}
+
+function majFiche() {  // fiche de la parcelle cliquée sur la carte, sinon de l'autorisation sélectionnée dans la liste du rapport
   const fiche = document.getElementById("fiche");
-  const d = etat.vue?.mode === "rapport" && etat.surligne ? parId.get(etat.surligne) : null;
-  fiche.hidden = !d;
-  fiche.innerHTML = d ? htmlFiche(d) : "";
+  const d = etat.surligne && (etat.vue?.mode === "rapport" || etat.retourParcelle) ? parId.get(etat.surligne) : null;
+  fiche.hidden = !etat.parcelle && !d;
+  fiche.innerHTML = etat.parcelle ? htmlFicheParcelle(etat.parcelle) : d ? htmlFiche(d) : "";
+  fiche.setAttribute("aria-label", etat.parcelle ? "Parcelle sélectionnée" : "Autorisation sélectionnée");
+  if (etat.parcelle) annoncer(`${fiche.querySelector(".titre-dossier").textContent} : ${fiche.querySelector(".bilan").textContent}`);
+  else if (d) annoncer(`${TYPES[d.type]} : ${fiche.querySelector(".titre-dossier").textContent}`);
+  if (cartePrete) carte.setFilter("parcelle-ouverte", ["==", ["get", "id"], etat.parcelle || ""]);
+}
+
+function fermerFiche() {  // bouton de fermeture ou Échap ; le focus revient à la ligne de l'autorisation
+  const id = etat.surligne, focusDansFiche = document.getElementById("fiche").contains(document.activeElement);
+  if (etat.parcelle) ouvrirParcelle(null);
+  else if (id) selectionner(id);
+  if (focusDansFiche && id) document.querySelector(`#vue .ligne-dossier[data-id="${CSS.escape(id)}"]`)?.focus();
+}
+
+const annoncer = texte => { document.getElementById("annonce").textContent = texte; };  // lu par les lecteurs d'écran
+
+function annonceVue() {  // résumé de la vue, à la place de toute la liste
+  const v = etat.vue;
+  if (v.mode === "rapport") return document.querySelector("#vue .synthese")?.textContent ?? "";
+  if (v.mode === "parcelle") return `Parcelle ${nomParcelle(v.id)} : ${nombreAutorisations(...autorisationsParcelle(v.id))}`;
+  return `Toute la commune : ${pluriel(dossiers.filter(visible).length, "autorisation")} depuis ${etat.depuis}`;
 }
 
 function pointerParcelle(id) {  // survol d'une parcelle sur la carte : ses autorisations du rayon mises en avant dans la liste
@@ -754,6 +887,8 @@ function initCarte() {
       paint: {"line-color": ENCRE, "line-width": 3}}, avant);
     carte.addLayer({id: "parcelle-pointee", type: "line", source: "parcelles", filter: ["==", ["get", "id"], ""],
       paint: {"line-color": ENCRE, "line-width": 2.5}}, avant);
+    carte.addLayer({id: "parcelle-ouverte", type: "line", source: "parcelles", filter: ["==", ["get", "id"], ""],
+      paint: {"line-color": ENCRE, "line-width": 3}}, avant);
     carte.addSource("adresses", {type: "geojson", data: `${DONNEES}/adresses.json`});
     carte.addLayer({id: "numeros", type: "symbol", source: "adresses", minzoom: 16.5,  // numéros de rue, pour se repérer
       layout: {"text-field": ["get", "n"], "text-font": ["Source Sans Pro Regular"], "text-size": 11.5},
@@ -766,16 +901,14 @@ function initCarte() {
 
   infobulle = new maplibregl.Popup({closeButton: false, closeOnClick: false, offset: 10, maxWidth: "260px"});
   carte.on("mousemove", "parcelles-clic", e => {
-    const id = e.features[0].properties.id, n = (parParcelle.get(id) || []).filter(visible).length;
+    const id = e.features[0].properties.id, [liste, anciennes] = autorisationsParcelle(id);
+    const autres = !liste.length && anciennes ? ` (${pluriel(anciennes, "plus ancienne", "plus anciennes")})` : "";
     carte.getCanvas().style.cursor = "pointer";
-    infobulle.setLngLat(e.lngLat).setHTML(`Parcelle <strong>${esc(nomParcelle(id))}</strong><br>${n ? pluriel(n, "autorisation") : "Aucune autorisation recensée"}`).addTo(carte);
+    infobulle.setLngLat(e.lngLat).setHTML(`Parcelle <strong>${esc(nomParcelle(id))}</strong><br>${nombreAutorisations(liste, anciennes)}${autres}`).addTo(carte);
     pointerParcelle(id);
   });
   carte.on("mouseleave", "parcelles-clic", () => { carte.getCanvas().style.cursor = ""; infobulle.remove(); pointerParcelle(null); });
-  carte.on("click", "parcelles-clic", e => {  // vue parcelle ; depuis la carte seule, on revient à la liste pour la montrer
-    if (etat.affichage === "carte") choisirAffichage(PETIT_ECRAN.matches ? "liste" : "split");
-    naviguer({parcelle: e.features[0].properties.id});
-  });
+  carte.on("click", "parcelles-clic", e => ouvrirParcelle(e.features[0].properties.id));
 }
 
 /* ---------- Navigation (l'état de la vue vit dans l'URL : liens partageables) ---------- */
@@ -809,6 +942,7 @@ function lireUrl() {
     if (h.has("donnees")) document.getElementById("donnees").scrollIntoView(); else window.scrollTo(0, 0);
     return;
   }
+  if (!dossiers) return;  // données en cours de chargement : « Chargement des données… » reste affiché, demarrer() rappelle lireUrl
   if (!carte) initCarte(); else carte.resize();  // carte créée à la première visite : son conteneur doit avoir une taille
   rendre();
   if (cartePrete) cadrer();
@@ -821,33 +955,43 @@ function rapportAutourDe(lon, lat, libelle, precision, commune) {
   naviguer({lon: lon.toFixed(6), lat: lat.toFixed(6), r: etat.rayon, l: libelle, p: precision, c: commune});
 }
 
+function rapportParcelle(id) {  // rapport centré sur la parcelle
+  const [lon, lat] = centroide(toutes.get(id).geom);
+  rapportAutourDe(lon, lat, `Parcelle ${nomParcelle(id)}`, "parcelle", INSEE);
+}
+
 /* ---------- Recherche d'adresse (autocomplétion du géocodeur de l'IGN) ---------- */
 
 function initRecherche(form) {  // barre de l'accueil et barre de l'en-tête
   const champ = form.querySelector("input[type=search]"), liste = form.querySelector(".suggestions");
-  const [x0, y0, x1, y1] = meta.emprise;
-  let suggestions = [], pour = "", actif = -1, minuteur, numero = 0;
+  let suggestions = [], pour = "", actif = -1, minuteur, numero = 0, panne = false;  // panne : le géocodeur n'a pas répondu
 
   const fermer = () => { liste.hidden = true; champ.setAttribute("aria-expanded", "false"); champ.removeAttribute("aria-activedescendant"); };
   const afficher = () => {
     liste.innerHTML = suggestions.length
       ? suggestions.map((f, i) => `<li role="option" id="${liste.id}-${i}" data-i="${i}" aria-selected="${i === actif}">${esc(f.properties.label)}</li>`).join("")
-      : `<li class="aucune" role="option" aria-disabled="true">Aucune adresse trouvée</li>`;
+      : `<li class="aucune" role="option" aria-disabled="true">${panne ? "Le service d'adresses de l'IGN ne répond pas. Réessayez dans un instant."
+        : "Aucune adresse trouvée : vérifiez le nom de la rue."}</li>`;
     liste.hidden = false;
     champ.setAttribute("aria-expanded", "true");
     if (actif >= 0) champ.setAttribute("aria-activedescendant", `${liste.id}-${actif}`); else champ.removeAttribute("aria-activedescendant");
   };
   const suggerer = async q => {
     const n = ++numero;
-    const url = `${GEOCODEUR}?${new URLSearchParams({q, autocomplete: 1, index: "address", limit: 6, lon: (x0 + x1) / 2, lat: (y0 + y1) / 2})}`;
+    const centre = meta ? {lon: (meta.emprise[0] + meta.emprise[2]) / 2, lat: (meta.emprise[1] + meta.emprise[3]) / 2} : {};  // avant le chargement : sans priorité à la commune
+    const url = `${GEOCODEUR}?${new URLSearchParams({q, autocomplete: 1, index: "address", limit: 6, ...centre})}`;
     try {
       const r = await fetch(url);
+      if (!r.ok) throw new Error(String(r.status));
       const j = await r.json();
       if (n !== numero) return [];
       suggestions = j.features || [];
       pour = q;
+      panne = false;
     } catch {
+      if (n !== numero) return [];
       suggestions = [];
+      panne = true;
     }
     actif = -1;
     afficher();
@@ -872,7 +1016,7 @@ function initRecherche(form) {  // barre de l'accueil et barre de l'en-tête
       e.preventDefault();
       actif = (actif + (e.key === "ArrowDown" ? 1 : -1) + suggestions.length) % suggestions.length;
       afficher();
-    } else if (e.key === "Escape") fermer();
+    } else if (e.key === "Escape") { e.preventDefault(); fermer(); }  // Échap ferme d'abord les suggestions, pas la fiche
   });
   liste.addEventListener("mousedown", e => {
     const li = e.target.closest("li[data-i]");
@@ -929,13 +1073,15 @@ function imprimer() {  // la carte reste rendue hors écran en affichage liste :
 
 function initActions() {
   const vue = document.getElementById("vue");
-  vue.addEventListener("mouseover", e => {  // survol d'une autorisation : ses parcelles en jaune le temps du survol
-    const id = e.target.closest("[data-id]")?.dataset.id || null;
-    if (cartePrete && id !== etat.survol) { etat.survol = id; appliquerSurlignage(); }
-  });
-  vue.addEventListener("mouseleave", () => {
-    if (cartePrete && etat.survol) { etat.survol = null; appliquerSurlignage(); }
-  });
+  for (const zone of [vue, document.getElementById("fiche")]) {  // survol d'une autorisation : ses parcelles en jaune le temps du survol
+    zone.addEventListener("mouseover", e => {
+      const id = e.target.closest("[data-id]")?.dataset.id || null;
+      if (cartePrete && id !== etat.survol) { etat.survol = id; appliquerSurlignage(); }
+    });
+    zone.addEventListener("mouseleave", () => {
+      if (cartePrete && etat.survol) { etat.survol = null; appliquerSurlignage(); }
+    });
+  }
   vue.addEventListener("click", async e => {
     const sigle = e.target.closest(".sigle");
     if (sigle) {
@@ -957,12 +1103,10 @@ function initActions() {
     const b = e.target.closest("button");
     if (!b) return;
     if (b.dataset.tri) { etat.tri = b.dataset.tri; rendre(); return; }
+    if (b.dataset.depuis) { changerPeriode(Number(b.dataset.depuis)); return; }
     const action = b.dataset.action;
     if (action === "commune") naviguer("explorer");
-    if (action === "rayon-parcelle") {
-      const id = etat.vue.id, [lon, lat] = centroide(toutes.get(id).geom);
-      rapportAutourDe(lon, lat, `Parcelle ${nomParcelle(id)}`, "parcelle", INSEE);
-    }
+    if (action === "rayon-parcelle") rapportParcelle(etat.vue.id);
     if (action === "csv" || action === "imprimer") b.closest("details")?.removeAttribute("open");
     if (action === "csv") exporterCsv();
     if (action === "imprimer") imprimer();
@@ -974,25 +1118,48 @@ function initActions() {
   document.addEventListener("click", e => {  // le menu « Éditer un rapport » se ferme quand on clique ailleurs
     document.querySelectorAll(".menu-rapport[open]").forEach(m => { if (!m.contains(e.target)) m.removeAttribute("open"); });
   });
+  document.addEventListener("keydown", e => {  // Échap : ferme le menu « Éditer un rapport », sinon la fiche ouverte
+    if (e.key !== "Escape" || e.defaultPrevented) return;
+    const menu = document.querySelector(".menu-rapport[open]");
+    if (menu) { menu.removeAttribute("open"); menu.querySelector("summary").focus(); return; }
+    if (!document.getElementById("fiche").hidden) fermerFiche();
+  });
   document.getElementById("fiche").addEventListener("click", e => {
-    const action = e.target.closest("button")?.dataset.action;
-    if (action === "fermer-fiche") selectionner(etat.surligne);
+    const ligne = e.target.closest(".ligne-dossier");  // dans la fiche de parcelle : même geste que dans la liste
+    if (ligne) { selectionner(ligne.dataset.id, etat.parcelle); document.querySelector("#fiche .retour")?.focus(); return; }
+    const b = e.target.closest("button"), action = b?.dataset.action;
+    if (b?.dataset.depuis) changerPeriode(Number(b.dataset.depuis));
+    if (action === "retour-parcelle") {  // le focus revient sur la ligne de l'autorisation, dans la fiche de parcelle
+      const dossier = etat.surligne;
+      ouvrirParcelle(etat.retourParcelle);
+      document.querySelector(`#fiche .ligne-dossier[data-id="${CSS.escape(dossier)}"]`)?.focus();
+    }
+    if (action === "fermer-fiche") fermerFiche();
     if (action === "voir-carte") choisirAffichage("carte");
+    if (action === "rayon-parcelle") rapportParcelle(etat.parcelle);
   });
 }
 
 /* ---------- Démarrage ---------- */
 
+function echecChargement() {  // données injoignables : le dire, et proposer de réessayer
+  const erreur = `<div class="alerte" role="alert"><p>Les données n'ont pas pu être chargées. Vérifiez votre connexion.</p>
+    <button type="button" class="action" data-recharger>Réessayer</button></div>`;
+  document.getElementById("vue").innerHTML = erreur;
+  document.querySelector("[data-info=bilan]").outerHTML = erreur;
+  document.querySelectorAll("[data-recharger]").forEach(b => b.addEventListener("click", () => location.reload()));
+}
+
 async function demarrer() {
   montrerEcran(ecranCarte(new URLSearchParams(location.hash.slice(1))));  // l'accueil s'affiche sans attendre les données
   initAffichage();
+  document.querySelectorAll("form[role=search]").forEach(initRecherche);  // la recherche n'attend pas les ~7 Mo de données
+  window.addEventListener("hashchange", lireUrl);  // une adresse choisie pendant le chargement ouvre l'écran de résultat
   const lire = f => fetch(`${DONNEES}/${f}`).then(r => { if (!r.ok) throw new Error(f); return r.json(); });
   try {
     [meta, geoParcelles, geoAnciennes, dossiers] = await Promise.all(["meta.json", "parcelles.json", "anciennes.json", "dossiers.json"].map(lire));
   } catch {
-    const erreur = `<p class="alerte">Les données n'ont pas pu être chargées.</p>`;
-    document.getElementById("vue").innerHTML = erreur;
-    document.querySelector("[data-info=bilan]").outerHTML = erreur;
+    echecChargement();
     return;
   }
   for (const f of geoParcelles.features) {
@@ -1011,9 +1178,7 @@ async function demarrer() {
   }
   remplirAccueil();
   initFiltres();
-  document.querySelectorAll("form[role=search]").forEach(initRecherche);
   initActions();
-  window.addEventListener("hashchange", lireUrl);
   lireUrl();
 }
 

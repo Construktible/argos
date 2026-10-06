@@ -24,6 +24,7 @@
   --dp: #e0a100;              /* texte encre sur le jaune, pas blanc */
   --autorisation: #2a78d6;    /* carte : parcelles portant au moins une autorisation (une seule couleur) */
   --surlignage: #ffe600;      /* carte : autorisation cliquée dans la liste */
+  --surlignage-fond: #fff4a8; /* liste : la même autorisation, en fond de ligne */
   --motif-bord: #e2ded4;      /* motif décoratif de l'accueil : rues et anneaux */
   --motif-voie: #faf9f6;
   --motif-anneau: #cfcac0;
@@ -47,6 +48,7 @@
     --trait: #33363a;
     --trait-fort: #4a4d52;
     --anneau: rgba(241, 239, 234, .10);
+    --surlignage-fond: #4a4413;
     --motif-bord: #23272b;
     --motif-voie: #181b1e;
     --motif-anneau: #3a3e43;
@@ -164,8 +166,24 @@ button, input, select { font: inherit; color: inherit; }
 .sous-titre { font-size: .9rem; }
 .note { font-size: .88rem; }
 .alerte { padding: 8px 10px; border-left: 3px solid var(--trait-fort); background: var(--surface-2); font-size: .88rem; }
-.retour { padding: 0; border: 0; background: none; color: var(--lien); cursor: pointer; font-size: .88rem; }
+.retour { align-self: flex-start; padding: 4px 0; border: 0; background: none; color: var(--lien); cursor: pointer; font-size: .88rem; }
 .retour:hover { text-decoration: underline; }
+.lien-periode {  /* historique complet, ou retour à la période par défaut */
+  display: block;
+  align-self: flex-start;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--lien);
+  font-size: 14px;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.lien-periode:hover { text-decoration-thickness: 2px; }
+ul.dossiers + .lien-periode { margin-top: 10px; }
 .mention { font-size: .8rem; color: var(--encre-3); }
 #vue ul.simple { padding-left: 18px; margin: 0 0 10px; }
 #vue ul.simple li { margin-bottom: 4px; }
@@ -178,7 +196,8 @@ button, input, select { font: inherit; color: inherit; }
 .precision-chiffres { font-size: .8rem; color: var(--encre-3); margin-top: 4px; }
 
 /* Légende des sigles : à l'écran, elle sert aussi de filtre des types (un clic masque ou réaffiche) */
-.sigles { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 10px 0 0; font-size: 13px; color: var(--encre-2); }
+.sigles { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; margin: 10px 0 0; font-size: 13px; color: var(--encre-2); }
+.sigles-titre { font-weight: 500; }
 .sigles > span { display: inline-flex; align-items: center; gap: 6px; }
 .sigles .badge { min-width: 30px; height: 22px; padding: 0 6px; font-size: 11.5px; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 .sigle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 6px 3px 0; border: 0; border-radius: 8px; background: transparent; text-align: left; cursor: pointer; }
@@ -241,12 +260,21 @@ button, input, select { font: inherit; color: inherit; }
 .resume .retour { margin-bottom: 6px; }
 .resume .surtitre { text-align: left; }
 .synthese { margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; font-weight: 600; letter-spacing: -.02em; }
+/* Mise en garde sous le chiffre clé : ce que les données ne disent pas, détaillé à la demande */
+.limites-rapport { max-width: 62ch; font-size: 13.5px; line-height: 1.45; color: var(--encre-2); }
+.limites-rapport summary { list-style: none; cursor: pointer; }
+.limites-rapport summary::-webkit-details-marker { display: none; }
+.limites-rapport .plus { color: var(--encre); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; white-space: nowrap; }
+.limites-rapport summary:hover .plus { text-decoration-thickness: 2px; }
+.limites-rapport p { margin: 0; }
+.limites-rapport ul { margin: 6px 0 0; padding-left: 18px; }
+.limites-rapport li { margin-bottom: 3px; }
 .bloc { margin-top: 32px; }
 #vue .bloc h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: -.01em; }
 .tri-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--trait); }
 #vue .tri-barre h2 { margin: 0; }
 .tri { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; font-size: 14px; color: var(--encre-2); }
-.tri .aide { margin-right: 6px; }
+.tri .aide { flex-basis: 100%; font-size: 13px; }
 .vide-bloc { padding: 24px; border: 1px dashed var(--trait-fort); border-radius: 14px; font-size: 15px; line-height: 1.5; color: var(--encre-2); }
 .pied-rapport { margin-top: 32px !important; }
 /* Liste compacte : une ligne par dossier, sur deux lignes de texte */
@@ -265,8 +293,8 @@ button, input, select { font: inherit; color: inherit; }
   scroll-margin: 16px;
 }
 .ligne-dossier:hover { background: var(--surface-2); }
-.ligne-dossier.pointee { background: var(--surface-2); box-shadow: inset 3px 0 0 var(--encre); }  /* parcelle survolée sur la carte */
-.ligne-dossier[aria-pressed="true"] { background: var(--surface-2); box-shadow: inset 4px 0 0 var(--surlignage); }  /* jaune, comme sur la carte */
+.ligne-dossier.pointee { background: var(--surface-2); box-shadow: inset 0 0 0 1.5px var(--encre); }  /* parcelle survolée sur la carte */
+.ligne-dossier[aria-pressed="true"] { background: var(--surlignage-fond); box-shadow: inset 0 0 0 1.5px var(--encre); }  /* jaune et contour encre, comme sur la carte */
 .ligne-dossier .badge { grid-row: 1 / 3; align-self: start; min-width: 32px; height: 22px; margin-top: 1px; font-size: 11px; }
 .ligne-dossier .l1 { font-size: 15px; line-height: 1.35; }
 .ligne-dossier .titre-dossier { font-weight: 600; }
@@ -274,6 +302,7 @@ button, input, select { font: inherit; color: inherit; }
 .ligne-dossier .droite { font-family: var(--mono); font-size: 12.5px; line-height: 1.6; color: var(--encre); white-space: nowrap; text-align: right; }
 .ligne-dossier .l2 { font-size: 13px; line-height: 1.35; color: var(--encre-3); }
 .ligne-dossier .droite-2 { font-size: 12.5px; line-height: 1.35; color: var(--encre-3); white-space: nowrap; text-align: right; }
+.ligne-dossier .l3 { grid-column: 2 / 4; font-size: 12.5px; line-height: 1.35; color: var(--encre-3); }  /* déposée sous un ancien numéro de parcelle */
 .ligne-dossier.annule .titre-dossier, .ligne-dossier.annule .detail { text-decoration: line-through; color: var(--encre-3); }
 .groupe-adresse { margin-top: 18px; }
 .groupe-adresse:first-of-type { margin-top: 0; }
@@ -291,12 +320,14 @@ button, input, select { font: inherit; color: inherit; }
 /* Contenu de la fiche */
 .fiche-haut { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .fiche .badge { min-width: 38px; height: 26px; font-size: 12px; }
+.fiche .type-fiche { font-size: 14px; color: var(--encre-2); }
 .fiche .distance { font-family: var(--mono); font-size: 13px; color: var(--encre-2); }
 .fiche .titre-dossier { font-size: 17px; font-weight: 600; line-height: 1.25; }
 .fiche .titre-dossier.annule { text-decoration: line-through; color: var(--encre-3); }
 .fiche .detail { font-size: 14px; line-height: 1.4; color: var(--encre-2); }
 .fiche .adresse { font-size: 14px; line-height: 1.4; }
 .fiche .quand { font-size: 13px; color: var(--encre-3); }
+.fiche .bilan { margin-top: 4px; font-size: 14px; font-weight: 600; }  /* fiche de parcelle : nombre d'autorisations */
 .fiche .registre {
   display: flex;
   flex-wrap: wrap;
@@ -428,8 +459,8 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 .groupe h4 .distance { font-family: var(--mono); font-size: .8rem; font-weight: 400; color: var(--encre-2); white-space: nowrap; }
 .groupe ul.dossiers { border-top: 0; }
 .groupe .dossier .adresse { display: none; }
-.dossier.surlignee summary { background: var(--surface-2); box-shadow: inset 4px 0 0 var(--surlignage); }
-.dossier.pointee summary { background: var(--surface-2); box-shadow: inset 4px 0 0 var(--encre); }  /* parcelle survolée sur la carte */
+.dossier.surlignee summary { background: var(--surlignage-fond); box-shadow: inset 0 0 0 1.5px var(--encre); }
+.dossier.pointee summary { background: var(--surface-2); box-shadow: inset 0 0 0 1.5px var(--encre); }  /* parcelle survolée sur la carte */
 
 /* Petit écran : la liste d'abord, la carte en plein écran par le sélecteur */
 @media (max-width: 820px) {
@@ -446,6 +477,10 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
   .maj { display: none; }
   .fiche, .vue-carte .fiche, .vue-liste .fiche { position: fixed; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 70dvh; }
   .legende { gap: 4px; padding: 8px 10px; font-size: 11.5px; }
+  /* cibles tactiles de 44 px */
+  .segmente button, .depuis select, .menu-rapport summary, .barre.barre-compacte .bouton-principal { height: 44px; }
+  .fiche .fermer { width: 44px; height: 44px; }
+  .sigle { min-height: 44px; }
 }
 
 /* Contrôles de la carte */
