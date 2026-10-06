@@ -85,7 +85,7 @@ python3 design/accueil_preuve.py                 # -> site/accueil/plan-{avant,a
 
 Accueil : carré avant / après repris d'impeccable.style (plan réel de Montreuil, autorisations **fictives**, la légende le dit). Généré par `design/accueil_preuve.py` à partir du cadastre (`doc_source/cadastre/93048/`, parcelles et `batiments-2026-09-01.json.gz`) ; il remplace le bloc entre `<!-- preuve:debut -->` et `<!-- preuve:fin -->` d'`index.html` : ne pas l'éditer à la main. Script : `site/preuve.js`.
 
-Pré-ouverture (`app.js`, section « Avant l'ouverture ») : sans code bêta, une recherche, la carte de la commune ou un lien vers une parcelle n'affichent qu'un aperçu (nombre et types) avec la liste d'attente. `CODES_BETA` : empreintes SHA-256 des codes, en minuscules ; `LISTE_ATTENTE` : URL du formulaire Brevo, vide tant que le compte n'existe pas (rien n'est alors enregistré). Le verrou vit dans le navigateur (`localStorage`) : ce n'est pas une protection, les données sont publiques.
+Pré-ouverture (`app.js`, section « Avant l'ouverture ») : sans code bêta, une recherche, la carte de la commune ou un lien vers une parcelle ouvrent une page à part (écran `#attente` d'`index.html`, 6 octobre 2026) : aperçu (nombre et types), liste d'attente, accès bêta. Avec le code, la liste et la carte. `CODES_BETA` : empreintes SHA-256 des codes, en minuscules ; `LISTE_ATTENTE` : URL du formulaire Brevo, vide tant que le compte n'existe pas (rien n'est alors enregistré). Le verrou vit dans le navigateur (`localStorage`) : ce n'est pas une protection, les données sont publiques.
 
 Site : après modification de `app.js` ou `style.css`, incrémenter `?v=` dans `index.html` (sinon le navigateur garde l'ancienne version en cache).
 

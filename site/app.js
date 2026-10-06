@@ -1087,13 +1087,11 @@ function htmlApercu(v) {  // nombre d'autorisations de la période par défaut e
       Le détail (adresses, projets, carte et rapport imprimable) sera ouvert à tous prochainement.</p>`;
 }
 
-function montrerApercu(chargement = false) {  // à la place des résultats, sous la barre de recherche de l'accueil
-  const bloc = document.getElementById("apercu"), resume = bloc.querySelector(".apercu-resume");
-  bloc.hidden = false;
+function montrerApercu(chargement = false) {  // page de la liste d'attente, à la place des résultats
+  const resume = document.querySelector("#apercu .apercu-resume");
   if (chargement) { resume.innerHTML = `<h2 id="apercu-titre" tabindex="-1">Chargement des données…</h2>`; return; }  // lireUrl rappelée une fois chargées
   resume.innerHTML = htmlApercu(etat.vue);
   if (etat.vue.mode === "rapport") document.getElementById("q-accueil").value = etat.vue.libelle;
-  bloc.scrollIntoView({block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
   document.getElementById("apercu-titre").focus({preventScroll: true});
 }
 
@@ -1142,11 +1140,11 @@ function naviguer(params) {  // objet de paramètres, ou fragment tel quel ("exp
 
 const ecranCarte = h => h.has("parcelle") || (h.has("lon") && h.has("lat")) || h.has("explorer");
 
-function montrerEcran(carteVisible) {  // accueil sans carte, ou liste et carte
-  const appli = document.getElementById("appli"), accueil = document.getElementById("accueil");
-  if (appli.hidden === !carteVisible && accueil.hidden === carteVisible) return;  // déjà affiché
-  appli.hidden = !carteVisible;
-  accueil.hidden = carteVisible;
+const ECRANS = ["accueil", "attente", "appli"];  // accueil sans carte ; avant l'ouverture, page de la liste d'attente ; liste et carte
+
+function montrerEcran(ecran) {
+  if (!document.getElementById(ecran).hidden) return;  // déjà affiché
+  for (const e of ECRANS) document.getElementById(e).hidden = e !== ecran;
   window.scrollTo(0, 0);
 }
 
@@ -1162,8 +1160,7 @@ function lireUrl() {
   else if (h.has("explorer")) etat.vue = {mode: "commune", insee: h.get("explorer")};
   else etat.vue = null;
   const ouvert = estBeta();  // avant l'ouverture, seuls les bêta-testeurs voient les résultats
-  montrerEcran(Boolean(etat.vue) && ouvert);
-  document.getElementById("apercu").hidden = true;
+  montrerEcran(!etat.vue ? "accueil" : ouvert ? "appli" : "attente");
   if (!etat.vue) {  // accueil : contenu fixe, rempli au démarrage
     if (h.has("donnees")) document.getElementById("donnees").scrollIntoView(); else window.scrollTo(0, 0);
     return;
@@ -1391,7 +1388,8 @@ function echecChargement() {  // données injoignables : le dire, et proposer de
 }
 
 async function demarrer() {
-  montrerEcran(ecranCarte(new URLSearchParams(location.hash.slice(1))) && estBeta());  // l'accueil s'affiche sans attendre les données
+  const h = new URLSearchParams(location.hash.slice(1));  // le bon écran s'affiche sans attendre les données
+  montrerEcran(!ecranCarte(h) ? "accueil" : estBeta() ? "appli" : "attente");
   initAvantOuverture();
   initAffichage();
   document.querySelectorAll("form[role=search]").forEach(initRecherche);  // la recherche n'attend pas l'index

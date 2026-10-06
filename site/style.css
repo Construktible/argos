@@ -795,7 +795,10 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 .exemples button:hover { border-color: var(--encre); }
 .explorer { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 10px 4px; font-size: 16px; font-weight: 500; color: var(--encre); }
 
-/* Avant l'ouverture : aperçu d'une recherche (nombre et types), liste d'attente, accès bêta */
+/* Écran 3 · Avant l'ouverture : aperçu d'une recherche (nombre et types), liste d'attente, accès bêta */
+.attente { min-height: 100dvh; display: flex; flex-direction: column; }
+.attente-contenu { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: clamp(32px, 6vw, 80px) 16px; }
+.retour-accueil { width: 100%; max-width: 640px; font-size: 15px; color: var(--encre); }
 .apercu {
   width: 100%;
   max-width: 640px;

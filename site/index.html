@@ -8,9 +8,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://data.geopf.fr; connect-src 'self' https://data.geopf.fr; worker-src blob:; child-src blob:; font-src 'self'">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous" defer></script>
-<script src="app.js?v=33" defer></script>
+<script src="app.js?v=34" defer></script>
 <script src="preuve.js?v=1" defer></script>
 </head>
 <body>
@@ -59,35 +59,6 @@
               <button type="button" data-q="41 rue Marcel Bonnet, Cachan">41 rue Marcel Bonnet, Cachan</button>
             </p>
           </form>
-
-
-          <section class="apercu" id="apercu" aria-labelledby="apercu-titre" hidden>
-            <div class="apercu-resume" aria-live="polite"></div>
-            <form class="liste-attente" id="liste-attente" method="post" novalidate>
-              <label for="courriel">Être prévenu de l'ouverture</label>
-              <div class="ligne-champ">
-                <input id="courriel" name="EMAIL" type="email" autocomplete="email" required placeholder="vous@exemple.fr"
-                       aria-describedby="mention-liste">
-                <button type="submit" class="bouton-principal">M'inscrire</button>
-              </div>
-              <input type="text" name="email_address_check" value="" tabindex="-1" autocomplete="off" aria-hidden="true" class="piege">
-              <input type="hidden" name="locale" value="fr">
-              <p class="note-liste" id="mention-liste">Un seul usage : vous écrire à l'ouverture d'Argos. Adresse conservée chez Brevo,
-                jamais cédée ; désinscription en un clic dans chaque e-mail.</p>
-              <p class="statut" role="status"></p>
-            </form>
-            <details class="beta">
-              <summary>Accès bêta-testeur</summary>
-              <form class="code-beta" id="code-beta" autocomplete="off">
-                <label for="code">Code d'accès</label>
-                <div class="ligne-champ">
-                  <input id="code" type="text" spellcheck="false" autocapitalize="off" required>
-                  <button type="submit" class="bouton-secondaire">Accéder aux résultats</button>
-                </div>
-                <p class="statut" role="status"></p>
-              </form>
-            </details>
-          </section>
 
           <a class="explorer" href="#explorer">ou explorer directement sur la carte<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
         </div>
@@ -182,6 +153,58 @@
     </section>
   </main>
 
+  <footer class="pied">
+    <span>argos · projet personnel, sans lien avec les communes couvertes ni avec une administration.</span>
+    <span class="mono">Données publiques · Licence Ouverte 2.0</span>
+  </footer>
+</div>
+
+<!-- Écran 3 · Avant l'ouverture : une recherche n'ouvre qu'un aperçu, la liste d'attente et l'accès bêta -->
+<div class="attente" id="attente" hidden>
+  <header class="accueil-entete">
+    <a class="titre" href="#" aria-label="Argos, accueil">
+      <svg class="logo" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
+        <circle cx="15" cy="15" r="3.6" fill="currentColor"/>
+        <circle cx="15" cy="15" r="8.4" fill="none" stroke="currentColor" stroke-width="1.7"/>
+        <circle cx="15" cy="15" r="13.2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-opacity=".45"/>
+      </svg>
+      <span class="marque">argos</span>
+    </a>
+    <nav class="accueil-nav" aria-label="Navigation principale">
+      <a href="#">Nouvelle recherche</a>
+      <a href="#donnees">Les données</a>
+    </nav>
+  </header>
+  <main class="attente-contenu">
+    <a class="retour-accueil" href="#">← Nouvelle recherche</a>
+    <section class="apercu" id="apercu" aria-labelledby="apercu-titre">
+      <div class="apercu-resume" aria-live="polite"></div>
+      <form class="liste-attente" id="liste-attente" method="post" novalidate>
+        <label for="courriel">Être prévenu de l'ouverture</label>
+        <div class="ligne-champ">
+          <input id="courriel" name="EMAIL" type="email" autocomplete="email" required placeholder="vous@exemple.fr"
+                 aria-describedby="mention-liste">
+          <button type="submit" class="bouton-principal">M'inscrire</button>
+        </div>
+        <input type="text" name="email_address_check" value="" tabindex="-1" autocomplete="off" aria-hidden="true" class="piege">
+        <input type="hidden" name="locale" value="fr">
+        <p class="note-liste" id="mention-liste">Un seul usage : vous écrire à l'ouverture d'Argos. Adresse conservée chez Brevo,
+          jamais cédée ; désinscription en un clic dans chaque e-mail.</p>
+        <p class="statut" role="status"></p>
+      </form>
+      <details class="beta">
+        <summary>Accès bêta-testeur</summary>
+        <form class="code-beta" id="code-beta" autocomplete="off">
+          <label for="code">Code d'accès</label>
+          <div class="ligne-champ">
+            <input id="code" type="text" spellcheck="false" autocapitalize="off" required>
+            <button type="submit" class="bouton-secondaire">Accéder aux résultats</button>
+          </div>
+          <p class="statut" role="status"></p>
+        </form>
+      </details>
+    </section>
+  </main>
   <footer class="pied">
     <span>argos · projet personnel, sans lien avec les communes couvertes ni avec une administration.</span>
     <span class="mono">Données publiques · Licence Ouverte 2.0</span>
