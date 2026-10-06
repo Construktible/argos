@@ -791,6 +791,81 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 .exemples button:hover { border-color: var(--encre); }
 .explorer { display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 10px 4px; font-size: 16px; font-weight: 500; color: var(--encre); }
 
+/* Avant l'ouverture : aperçu d'une recherche (nombre et types), liste d'attente, accès bêta */
+.apercu {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px 24px 20px;
+  background: var(--surface);
+  border: 1px solid var(--trait);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px -16px rgba(29, 33, 37, .18);
+}
+.apercu-resume { display: flex; flex-direction: column; gap: 10px; }
+.apercu h2 { margin: 0; font-size: 24px; font-weight: 600; line-height: 1.2; letter-spacing: -.015em; text-wrap: balance; }
+.apercu h2:focus { outline: none; }
+.apercu-lieu { margin: 0; font-size: 15px; color: var(--encre-2); }
+.apercu-types { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 0; padding: 0; list-style: none; }
+.apercu-types li { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+.apercu-types .badge { min-width: 36px; height: 24px; font-size: 12px; }
+.apercu-note { margin: 0; font-size: 14px; line-height: 1.5; color: var(--encre-2); }
+.liste-attente, .code-beta { display: flex; flex-direction: column; gap: 8px; }
+.liste-attente { padding-top: 18px; border-top: 1px solid var(--trait); }
+.liste-attente label { font-size: 16px; font-weight: 600; }
+.code-beta label { font-size: 14px; font-weight: 500; color: var(--encre-2); }
+.ligne-champ { display: flex; flex-wrap: wrap; gap: 8px; }
+.ligne-champ input {
+  flex: 1 1 200px;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1.5px solid var(--trait-fort);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--encre);
+  font-size: 16px;
+}
+.ligne-champ input::placeholder { color: var(--encre-3); }
+.ligne-champ input:focus-visible { border-color: var(--encre); outline: 2px solid var(--encre); outline-offset: 1px; }
+.ligne-champ .bouton-principal { height: 48px; padding: 0 22px; font-size: 16px; }
+.bouton-secondaire {
+  height: 48px;
+  padding: 0 18px;
+  border: 1.5px solid var(--encre);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--encre);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bouton-secondaire:hover { background: var(--surface-2); }
+.note-liste { margin: 0; font-size: 13px; line-height: 1.45; color: var(--encre-3); }
+.statut { margin: 0; font-size: 14px; color: var(--encre); }
+.statut:empty { display: none; }
+.piege { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }  /* champ pour robots, laissé vide */
+.beta summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--encre);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  list-style: none;
+}
+.beta summary::-webkit-details-marker { display: none; }
+.beta summary::after { content: ""; width: 7px; height: 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform .2s; }
+.beta[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+.beta .code-beta { margin-top: 6px; }
+
 .etapes, .donnees { padding: clamp(48px, 7vw, 88px) clamp(16px, 4vw, 48px); }
 .largeur { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
 .etapes h2, .donnees h2 { margin: 0; font-size: 28px; font-weight: 600; line-height: 1.2; letter-spacing: -.015em; }

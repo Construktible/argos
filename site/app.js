@@ -911,6 +911,89 @@ function initCarte() {
   carte.on("click", "parcelles-clic", e => ouvrirParcelle(e.features[0].properties.id));
 }
 
+/* ---------- Avant l'ouverture : aperçu, liste d'attente, accès bêta ---------- */
+// Tant que la plateforme n'est pas ouverte, une recherche n'affiche qu'un aperçu (nombre et types d'autorisations)
+// avec l'inscription à la liste d'attente ; un code d'accès débloque les résultats complets. Le verrou vit dans le
+// navigateur : ce n'est pas une protection (les données sont publiques), seulement un lancement progressif.
+
+const CODES_BETA = [  // empreintes SHA-256 des codes, en minuscules : python3 -c "import hashlib; print(hashlib.sha256('code'.encode()).hexdigest())"
+  "88ea68b3dec5d009a77b0dd3f4487be3ad027c8ef12f73aeda882d14ac5677b2",  // code distribué aux bêta-testeurs le 6 octobre 2026
+];
+const LISTE_ATTENTE = "";  // adresse du formulaire Brevo (https://….sibforms.com/serve/…) ; vide : inscriptions pas encore branchées
+const CLE_BETA = "argos-beta";
+
+function estBeta() {
+  try { return localStorage.getItem(CLE_BETA) === "1"; } catch { return false; }  // stockage bloqué : pas d'accès bêta
+}
+
+function htmlApercu(v) {  // nombre d'autorisations de la période par défaut et répartition par type, sans aucun détail
+  let liste, ou;
+  if (v.mode === "commune" || (v.mode === "parcelle" && !toutes.has(v.id))) {
+    liste = dossiers.filter(dansPeriode);
+    ou = `à ${esc(meta.commune)}`;
+  } else {
+    const [lon, lat] = v.mode === "parcelle" ? centroide(toutes.get(v.id).geom) : [v.lon, v.lat];
+    liste = [...rechercher(lon, lat, etat.rayon).dansRayon.keys()].map(id => parId.get(id));
+    ou = `à moins de ${etat.rayon}&nbsp;m`;
+  }
+  const lieu = v.mode === "rapport" ? autourDe(v) : v.mode === "parcelle" && toutes.has(v.id)
+    ? `Autour de la parcelle ${nomParcelle(v.id)}` : `Toute la commune de ${meta.commune}`;
+  const parType = Object.fromEntries(ORDRE_TYPES.map(t => [t, liste.filter(d => d.type === t).length]));
+  const types = ORDRE_TYPES.filter(t => parType[t]).map(t => `<li>${sigleType(t)}<span>${nombre.format(parType[t])}</span></li>`).join("");
+  return `
+    <h2 id="apercu-titre" tabindex="-1">${liste.length ? pluriel(liste.length, "autorisation") : "Aucune autorisation recensée"} ${ou} depuis ${etat.depuis}</h2>
+    <p class="apercu-lieu">${esc(lieu)}</p>
+    ${types ? `<ul class="apercu-types" aria-label="Par type">${types}</ul>` : ""}
+    <p class="apercu-note">Seules les autorisations accordées sont recensées${liste.length ? "" : " : leur absence ne garantit pas qu'aucun projet ne viendra"}.
+      Le détail (adresses, projets, carte et rapport imprimable) sera ouvert à tous prochainement.</p>`;
+}
+
+function montrerApercu() {  // à la place des résultats, sous la barre de recherche de l'accueil
+  const bloc = document.getElementById("apercu"), resume = bloc.querySelector(".apercu-resume");
+  bloc.hidden = false;
+  if (!dossiers) { resume.innerHTML = `<h2 id="apercu-titre" tabindex="-1">Chargement des données…</h2>`; return; }  // demarrer() rappelle lireUrl
+  resume.innerHTML = htmlApercu(etat.vue);
+  if (etat.vue.mode === "rapport") document.getElementById("q-accueil").value = etat.vue.libelle;
+  bloc.scrollIntoView({block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
+  document.getElementById("apercu-titre").focus({preventScroll: true});
+}
+
+async function empreinte(texte) {
+  const octets = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texte)));
+  return [...octets].map(o => o.toString(16).padStart(2, "0")).join("");
+}
+
+function initAvantOuverture() {
+  const liste = document.getElementById("liste-attente"), beta = document.getElementById("code-beta");
+  if (LISTE_ATTENTE) liste.action = LISTE_ATTENTE;
+  liste.addEventListener("submit", e => {  // envoi classique vers Brevo, qui confirme par e-mail (double inscription)
+    const champ = liste.querySelector("input[type=email]"), statut = liste.querySelector(".statut");
+    if (!champ.checkValidity()) {
+      e.preventDefault();
+      statut.textContent = "Saisissez une adresse e-mail complète, par exemple prenom@exemple.fr.";
+      champ.focus();
+    } else if (!LISTE_ATTENTE) {
+      e.preventDefault();
+      statut.textContent = "Les inscriptions ouvrent dans quelques jours : votre adresse n'a pas été enregistrée. Revenez bientôt.";
+    }
+  });
+  beta.addEventListener("submit", async e => {
+    e.preventDefault();
+    const champ = beta.querySelector("input"), statut = beta.querySelector(".statut");
+    const code = champ.value.trim().toLowerCase();
+    if (!code) { statut.textContent = "Saisissez le code reçu."; champ.focus(); return; }
+    let valide = false;
+    try { valide = CODES_BETA.includes(await empreinte(code)); } catch { /* page hors https : pas de vérification possible */ }
+    if (!valide) { statut.textContent = "Code inconnu. Vérifiez-le, en minuscules ou majuscules indifféremment."; champ.select(); return; }
+    try { localStorage.setItem(CLE_BETA, "1"); } catch {
+      statut.textContent = "Votre navigateur bloque l'enregistrement de l'accès. Autorisez le stockage pour ce site.";
+      return;
+    }
+    statut.textContent = "Accès ouvert.";
+    lireUrl();
+  });
+}
+
 /* ---------- Navigation (l'état de la vue vit dans l'URL : liens partageables) ---------- */
 
 function naviguer(params) {  // objet de paramètres, ou fragment tel quel ("explorer")
@@ -937,11 +1020,14 @@ function lireUrl() {
     libelle: h.get("l") || "Point choisi", precision: h.get("p") || "", commune: h.get("c") || ""};
   else if (h.has("explorer")) etat.vue = {mode: "commune"};
   else etat.vue = null;
-  montrerEcran(Boolean(etat.vue));
+  const ouvert = estBeta();  // avant l'ouverture, seuls les bêta-testeurs voient les résultats
+  montrerEcran(Boolean(etat.vue) && ouvert);
+  document.getElementById("apercu").hidden = true;
   if (!etat.vue) {  // accueil : contenu fixe, rempli au démarrage
     if (h.has("donnees")) document.getElementById("donnees").scrollIntoView(); else window.scrollTo(0, 0);
     return;
   }
+  if (!ouvert) { montrerApercu(); return; }
   if (!dossiers) return;  // données en cours de chargement : « Chargement des données… » reste affiché, demarrer() rappelle lireUrl
   if (!carte) initCarte(); else carte.resize();  // carte créée à la première visite : son conteneur doit avoir une taille
   rendre();
@@ -1151,7 +1237,8 @@ function echecChargement() {  // données injoignables : le dire, et proposer de
 }
 
 async function demarrer() {
-  montrerEcran(ecranCarte(new URLSearchParams(location.hash.slice(1))));  // l'accueil s'affiche sans attendre les données
+  montrerEcran(ecranCarte(new URLSearchParams(location.hash.slice(1))) && estBeta());  // l'accueil s'affiche sans attendre les données
+  initAvantOuverture();
   initAffichage();
   document.querySelectorAll("form[role=search]").forEach(initRecherche);  // la recherche n'attend pas les ~7 Mo de données
   window.addEventListener("hashchange", lireUrl);  // une adresse choisie pendant le chargement ouvre l'écran de résultat
