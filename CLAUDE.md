@@ -27,7 +27,7 @@ Stack, interface et hébergement : **pas encore décidés**. Ne rien présumer.
 doc_source/                 fichiers bruts (~1,3 Go, ne pas versionner)
   documentation/            dictionnaires des variables SDES (juin 2026) + note de présentation SDES (2021)
   cadastre/<INSEE>/         cadastre Etalab de la commune, un fichier par millésime (<AAAA-MM-JJ>.json.gz)
-data/<INSEE>/               extraits par commune (générés par les scripts)
+data/<INSEE>/               extraits par commune (générés par les scripts, non versionnés depuis le 6 octobre 2026 : 272 Mo pour le 93 et le 94)
 scripts/                    pipeline de données (Python 3, stdlib uniquement)
 ```
 
@@ -68,10 +68,13 @@ scripts/                    pipeline de données (Python 3, stdlib uniquement)
 ## Scripts
 
 ```
-python3 scripts/01_extract_commune.py [INSEE]    # -> data/<INSEE>/{logements,locaux,amenager,demolir}.csv
+python3 scripts/01_extract_commune.py 93 94      # codes INSEE ou départements, un passage -> data/<INSEE>/{logements,locaux,amenager,demolir}.csv
 python3 scripts/02_cadastre.py [INSEE]           # télécharge tous les millésimes -> data/<INSEE>/parcelles.geojson
 python3 scripts/03_jointure_cadastre.py [INSEE]  # -> data/<INSEE>/autorisations_parcelles.csv
 python3 scripts/04_dossiers.py [INSEE]           # -> data/<INSEE>/dossiers.csv, dossiers_parcelles.csv, geocodage.csv
+python3 scripts/qualite.py 93 94                 # dossiers placés sur la carte, par commune -> data/qualite.csv
+python3 scripts/evaluation.py 93 94              # recherche à l'adresse de chaque dossier, par commune -> data/evaluation.csv
+for c in $(python3 scripts/communes.py 93 94); do python3 scripts/02_cadastre.py $c; done   # idem 03, 04 : par commune
 
 python3 scripts/recherche.py "27 bis rue du Progrès, Montreuil" [--rayon 300] [--csv rapport.csv] [--insee 93048]
 python3 scripts/05_site.py [INSEE]               # -> site/data/<INSEE>/{parcelles,anciennes,dossiers,meta}.json
@@ -110,9 +113,18 @@ Site : après modification de `app.js` ou `style.css`, incrémenter `?v=` dans `
 - `NATURE_PROJET_COMPLETEE` est illisible pour le public (« transformation sans extension ni diminution de surface »). `04_dossiers.py` écrit un champ `objet` en clair à partir de `TYPE_TRANSFO_PRINCIPAL` et des destinations avant/après : « Changement de destination : atelier d'artisanat → logement · 1 logement créé ».
 - `TYPE_PRINCIP_LOCAUX_TRANSFORMES` = 5 (180 dossiers à Montreuil) est absent du dictionnaire 2026. **Interprétation, non confirmée par le SDES** : ancienne destination « artisanat » (nomenclature d'avant 2016, dont les autres codes coïncident).
 - `I_EXTENSION`, `I_SURELEVATION`, `I_NIVSUPP` : jamais renseignés à Montreuil.
-- `COMM` est tiré du numéro de dossier, pas recodifié selon le COG : à gérer pour les communes fusionnées lors de l'extension.
+- `COMM` est tiré du numéro de dossier, pas recodifié selon le COG. **Pierrefitte-sur-Seine (93059) fusionnée dans Saint-Denis (93066) au 1er janvier 2025** : 346 lignes ont encore 93059. Le cadastre a un fichier 93059 jusqu'en 2024-10 (`930590000A0297`), puis la parcelle passe dans 93066 avec le préfixe `059` (`930660590A0297`). Géré par `communes.FUSIONS` (01, 02, 03). Le géocodeur répond `citycode` 93066, `oldcitycode` 93059.
 - `ETAT_*` (2 autorisé, 4 annulé, 5 commencé, 6 terminé) peu fiable : selon le SDES, ~15 % des ouvertures de chantier, 1/3 des achèvements et près de la moitié des annulations ne remontent jamais.
 - Champs demandeur (`DENOM_DEM`, `SIREN_DEM`…) vides pour les personnes physiques.
+
+### Vus en étendant au 93 et au 94 (6 octobre 2026)
+
+- **Numéros de parcelle tronqués à 2 chiffres** certaines années (« K 16 » pour K 163) : le dossier tombe sur une parcelle existante à 150-250 m de la bonne. Clichy-sous-Bois avant 2017, Montfermeil avant 2018, Neuilly-sur-Marne avant 2020, L'Haÿ-les-Roses 2016-2020, Joinville-le-Pont avant 2021 (moins de 25 % des dossiers retrouvés à leur adresse, contre ~80 % ensuite). Choix de l'utilisateur : pas de correction, le site n'affiche ces communes qu'à partir de l'année fiable, avec une mention (`communes.DEBUT_FIABLE`).
+- Sections mal saisies : « D0 » pour « 0D », lettre O pour zéro (« OB », « OY »). Essayées en second par 03 quand la section n'existe pas dans la commune.
+- 22 enregistrements en France ont un retour à la ligne dans un champ entre guillemets (lecture ligne à ligne impossible) ; surfaces parfois décimales (« 63.97 ») ; communes sans aucun PA.
+- Le géocodeur répond parfois 504 : 04 et `evaluation.py` réessaient.
+- Le millésime cadastre `2018-01-02` manque pour tout le 94 chez Etalab ; les fichiers départementaux n'existent pas pour les anciens millésimes (404 en 2017).
+- 93 et 94 : 35 084 dossiers, 97,3 % sur la carte. 945 perdus, dont 787 sans adresse ni référence dans SITADEL. Recherche à l'adresse : 77,5 % des dossiers sur leur parcelle, 87,5 % avec les voisines (Montreuil 82,6 / 92,1 avec `evaluation.py`).
 
 ## État au 4 octobre 2026 (SITADEL 2026-09, cadastre 2026-09-01, Montreuil)
 

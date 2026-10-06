@@ -4,6 +4,8 @@ Télécharge tous les millésimes du cadastre Etalab d'une commune et construit 
 Une parcelle divisée ou fusionnée change d'identifiant : elle disparaît du cadastre courant mais reste
 dans les millésimes antérieurs (environ un par trimestre depuis juillet 2017).
 Le lien « latest » d'Etalab peut avoir un millésime de retard : on prend le plus récent de la liste.
+Commune nouvelle : on y ajoute les millésimes des anciennes communes (communes.FUSIONS), identifiants renommés
+comme après la fusion (930590000A0297 -> 930660590A0297), pour suivre la même parcelle de part et d'autre.
 
 Source : https://cadastre.data.gouv.fr/data/etalab-cadastre/<millésime>/geojson/communes/<DEP>/<INSEE>/cadastre-<INSEE>-parcelles.json.gz
 Cache  : doc_source/cadastre/<INSEE>/<millésime>.json.gz
@@ -21,6 +23,8 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+from communes import anciennes
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = "https://cadastre.data.gouv.fr/data/etalab-cadastre/"
@@ -54,6 +58,10 @@ def main():
     cache = ROOT / "doc_source" / "cadastre" / insee
     cache.mkdir(parents=True, exist_ok=True)
 
+    fusionnees = anciennes(insee)
+    for a in fusionnees:
+        (ROOT / "doc_source" / "cadastre" / a).mkdir(parents=True, exist_ok=True)
+
     index, vus, precedents = {}, [], set()
     print(f"{'millésime':10s} {'parcelles':>9s} {'apparues':>9s} {'disparues':>9s}")
     for m in lister_millesimes():
@@ -62,11 +70,19 @@ def main():
             print(f"{m:10s} absent")
             continue
         vus.append(m)
-        with gzip.open(f, "rt", encoding="utf-8") as fh:
-            features = json.load(fh)["features"]
+        sources = [(f, None)] + [(ROOT / "doc_source" / "cadastre" / a / f"{m}.json.gz", prefixe)
+                                 for a, prefixe in fusionnees.items()]
+        features = []
+        for src, prefixe in sources:
+            if prefixe and not telecharger(m, src.parent.name, src):
+                continue  # après la fusion, l'ancienne commune n'a plus de fichier
+            with gzip.open(src, "rt", encoding="utf-8") as fh:
+                features += [(feat, prefixe) for feat in json.load(fh)["features"]]
         ids = set()
-        for feat in features:
+        for feat, prefixe in features:
             idu = feat.get("id") or feat["properties"]["id"]  # id au niveau feature absent en 2017-10
+            if prefixe:
+                idu = insee + prefixe + idu[8:]
             if idu in ids:
                 continue
             ids.add(idu)

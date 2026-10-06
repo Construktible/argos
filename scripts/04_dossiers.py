@@ -34,6 +34,7 @@ import re
 import sys
 import time
 import unicodedata
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
@@ -111,6 +112,11 @@ def valeur(sources: dict, col: str) -> str:
     return ""
 
 
+def entier(s: str) -> int:
+    """Nombre SITADEL, parfois décimal hors de Montreuil (« 63.97 » m²), arrondi à l'unité."""
+    return round(float(s)) if s else 0
+
+
 def objet(type_dau: str, v, destination: str) -> str:
     """Objet du dossier en clair (la nature du projet SDES, « transformation sans extension ni diminution de surface »,
     ne dit pas ce qui change) : type de transformation, destinations avant et après, logements et surfaces."""
@@ -121,8 +127,8 @@ def objet(type_dau: str, v, destination: str) -> str:
     nature, transfo = v("NATURE_PROJET_COMPLETEE"), v("TYPE_TRANSFO_PRINCIPAL")
     avant = DESTINATIONS_OBJET.get(v("TYPE_PRINCIP_LOCAUX_TRANSFORMES"), "local")
     apres = DESTINATIONS_OBJET.get(destination, "local")
-    logements = int(v("NB_LGT_TOT_CREES") or 0)
-    surface = int(v("SURF_HAB_CREEE") or 0) + int(v("SURF_LOC_CREEE") or 0)
+    logements = entier(v("NB_LGT_TOT_CREES"))
+    surface = entier(v("SURF_HAB_CREEE")) + entier(v("SURF_LOC_CREEE"))
     non_residentiel = destination not in ("", "1")
     if nature == "1":
         texte = "Construction neuve"
@@ -146,8 +152,8 @@ def objet(type_dau: str, v, destination: str) -> str:
     if logements:
         pluriel = "s" if logements > 1 else ""
         details.append(f"{logements} logement{pluriel} " + ("après travaux" if transfo == "2" else f"créé{pluriel}"))
-    if nature == "1" and non_residentiel and int(v("SURF_LOC_CREEE") or 0):
-        details.append(f"{int(v('SURF_LOC_CREEE')):,} m² ({apres})".replace(",", " "))
+    if nature == "1" and non_residentiel and entier(v("SURF_LOC_CREEE")):
+        details.append(f"{entier(v('SURF_LOC_CREEE')):,} m² ({apres})".replace(",", " "))
     return " · ".join([texte, *details])
 
 
@@ -195,8 +201,15 @@ def requete_adresse(s: dict) -> tuple[str, set[str]]:
 def geocoder(requete: str, insee: str) -> dict:
     url = GEOCODEUR + "?" + urllib.parse.urlencode({"q": requete, "index": "address", "citycode": insee, "limit": 1})
     req = urllib.request.Request(url, headers={"User-Agent": "Argos (pipeline SITADEL)"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        features = json.load(r)["features"]
+    for essai in range(5):  # le géocodeur répond parfois 504 (constaté sur le 94)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                features = json.load(r)["features"]
+            break
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
+            if essai == 4 or (isinstance(e, urllib.error.HTTPError) and e.code < 500):
+                raise
+            time.sleep(2 ** essai * 5)
     time.sleep(0.1)
     if not features:
         return {"label": "", "type": "", "score": "", "lon": "", "lat": ""}

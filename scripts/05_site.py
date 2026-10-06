@@ -26,9 +26,9 @@ from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
 
+from communes import departement, nom as nom_commune
 from recherche import ROOT, Index, contient, polygones
 
-COMMUNES = {"93048": "Montreuil"}
 PART_MIN = 0.05  # part de la surface d'une parcelle disparue pour qu'une parcelle actuelle soit dite successeur
 CELLULE = 0.0005  # degrés (~40-55 m) : grille d'index spatial des parcelles actuelles
 
@@ -102,7 +102,7 @@ def main():
         for a in sorted(anciennes_liees)]})
     ecrire("dossiers.json", dossiers)
 
-    dep = insee[:3] if insee.startswith("97") else insee[:2]
+    dep = departement(insee)
     with gzip.open(ROOT / "doc_source" / "ban" / f"adresses-{dep}.csv.gz", "rt", encoding="utf-8") as f:
         numeros = [{"type": "Feature", "properties": {"n": f"{r['numero']}{r['rep']}"},
                     "geometry": {"type": "Point", "coordinates": [round(float(r["lon"]), 6), round(float(r["lat"]), 6)]}}
@@ -112,7 +112,7 @@ def main():
     emprises = [idx.emprises[i] for i in actuelles]
     sitadel = sorted((ROOT / "doc_source").glob("Liste-des-permis-de-demolir.*.csv"))[-1].name.split(".")[-2]
     ecrire("meta.json", {
-        "insee": insee, "commune": COMMUNES.get(insee, insee), "sitadel": sitadel,
+        "insee": insee, "commune": nom_commune(insee), "sitadel": sitadel,
         "cadastre": max(f["properties"]["dernier_millesime"] for f in idx.parcelles.values()),
         "genere": date.today().isoformat(),
         "emprise": [min(e[0] for e in emprises), min(e[1] for e in emprises), max(e[2] for e in emprises), max(e[3] for e in emprises)],
