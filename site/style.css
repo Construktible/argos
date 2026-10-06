@@ -884,7 +884,7 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 
 .demo, .donnees { padding: clamp(48px, 7vw, 88px) clamp(16px, 4vw, 48px); }
 .largeur { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
-.demo h2, .donnees h2 { margin: 0; font-family: var(--titre); font-size: 40px; font-weight: 500; line-height: 1.05; }
+.demo h2 { margin: 0; font-family: var(--titre); font-size: 40px; font-weight: 500; line-height: 1.05; }
 
 /* Accueil · démonstration sur de vraies adresses : commandes et résultat à gauche, plan réel à droite */
 .demo-grille { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; gap: clamp(28px, 5vw, 72px); }
@@ -946,8 +946,6 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 
 .donnees { background: var(--surface); border-top: 1px solid var(--trait); border-bottom: 1px solid var(--trait); }
 .donnees .largeur { gap: 32px; }
-.intro { display: flex; flex-direction: column; gap: 10px; max-width: 720px; }
-.intro p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--encre-2); }
 .badge {  /* sigle du type, dans sa couleur */
   align-self: flex-start;
   display: inline-flex;
@@ -967,7 +965,7 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 .meta dt { font-size: 13px; color: var(--encre-3); }
 .meta dd { margin: 4px 0 0; font-family: var(--mono); font-size: 14px; }
 .limites { max-width: 760px; }
-.limites h3 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
+.limites h2 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
 .limites ul { margin: 0 0 12px; padding-left: 20px; font-size: 15px; line-height: 1.5; color: var(--encre-2); }
 .limites li { margin-bottom: 6px; }
 .limites summary { cursor: pointer; font-size: 14px; color: var(--encre-2); }

@@ -559,11 +559,7 @@ function remplirAccueil() {  // chiffres et dates de l'accueil, lus dans l'index
     premiere_annee: zone.premiere_annee,
     communes: nombre.format(zone.communes.length),
     sitadel: moisFr(zone.sitadel),
-    cadastre: moisFr(zone.cadastre),
     genere: dateFr(zone.genere),
-    bilan: `${pluriel(zone.dossiers, "autorisation accordée", "autorisations accordées")} depuis ${zone.premiere_annee}
-      dans ${zone.communes.length} communes, ${pluriel(zone.logements, "logement créé", "logements créés")}
-      et ${milliers(zone.surface)} m² de surface de plancher créés.`,
     "non-localisees": `${pluriel(n, "autorisation n'a", "autorisations n'ont")} pas pu être placée${n > 1 ? "s" : ""} sur la carte
       (ni adresse exploitable, ni parcelle retrouvée) : elles sont listées sur la page de chaque commune.`,
     "debut-fiable": `Dans ${fiables.length} communes, les autorisations ne sont recensées qu'à partir d'une année récente, les numéros
@@ -1508,7 +1504,6 @@ function echecChargement() {  // données injoignables : le dire, et proposer de
     <button type="button" class="action" data-recharger>Réessayer</button></div>`;
   document.getElementById("vue").innerHTML = erreur;
   document.querySelector("#apercu .apercu-resume").innerHTML = erreur;
-  if (!zone) document.querySelector("[data-info=bilan]")?.replaceWith(document.createRange().createContextualFragment(erreur));
   document.querySelectorAll("[data-recharger]").forEach(b => b.addEventListener("click", () => location.reload()));
 }
 

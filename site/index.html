@@ -9,9 +9,9 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/alumni-sans-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=41">
+<link rel="stylesheet" href="style.css?v=42">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous" defer></script>
-<script src="app.js?v=36" defer></script>
+<script src="app.js?v=37" defer></script>
 <script src="preuve.js?v=1" defer></script>
 </head>
 <body>
@@ -126,20 +126,14 @@
       </div>
     </section>
 
-    <section class="donnees" id="donnees" aria-labelledby="titre-donnees">
+    <section class="donnees" id="donnees" aria-labelledby="titre-limites">
       <div class="largeur">
-        <div class="intro">
-          <h2 id="titre-donnees">Les données</h2>
-          <p data-info="bilan"></p>
-        </div>
         <dl class="meta">
-          <div><dt>Source</dt><dd>SITADEL · SDES</dd></div>
-          <div><dt>Parcelles</dt><dd>Cadastre Etalab, de 2017 à <span data-info="cadastre"></span></dd></div>
           <div><dt>Données à jour de</dt><dd data-info="sitadel"></dd></div>
           <div><dt>Couverture</dt><dd>Seine-Saint-Denis (93) et Val-de-Marne (94), <span data-info="communes">86</span> communes · pilote</dd></div>
         </dl>
         <div class="limites">
-          <h3>Ce que les données ne contiennent pas</h3>
+          <h2 id="titre-limites">Ce que les données ne contiennent pas</h2>
           <ul>
             <li>Seules figurent les autorisations <strong>accordées</strong> qui créent des logements ou de la surface de plancher,
               plus les permis d'aménager et de démolir. Ni les refus, ni les dossiers en cours d'instruction.</li>
