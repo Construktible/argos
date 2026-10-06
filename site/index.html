@@ -9,9 +9,9 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/alumni-sans-latin-300-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=40">
+<link rel="stylesheet" href="style.css?v=41">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous" defer></script>
-<script src="app.js?v=35" defer></script>
+<script src="app.js?v=36" defer></script>
 <script src="preuve.js?v=1" defer></script>
 </head>
 <body>
@@ -98,26 +98,31 @@
       </div>
     </section>
 
-    <section class="etapes" aria-labelledby="titre-etapes">
-      <div class="largeur">
-        <h2 id="titre-etapes">De l'adresse au dossier, en trois temps</h2>
-        <div class="trois">
-          <div>
-            <span class="numero">01</span>
-            <h3>Une adresse</h3>
-            <p>Saisissez une adresse en Seine-Saint-Denis ou dans le Val-de-Marne : Argos retrouve la parcelle cadastrale qui lui correspond.</p>
+    <section class="demo" id="demo" aria-labelledby="titre-demo">
+      <div class="largeur demo-grille">
+        <div class="demo-texte">
+          <h2 id="titre-demo">Essayez sur une vraie adresse</h2>
+          <p class="demo-chapo">Quatre adresses du 93 et du 94, et les autorisations réellement accordées autour.
+            Changez de rayon : le plan suit.</p>
+          <div class="demo-adresses" role="group" aria-label="Adresse d'exemple">
+            <button type="button" data-demo="0" data-lon="2.421102" data-lat="48.851864" data-libelle="27bis Rue du Progrès 93100 Montreuil" aria-pressed="true">27 bis rue du Progrès<span>Montreuil</span></button>
+            <button type="button" data-demo="1" data-lon="2.35827" data-lat="48.914545" data-libelle="214 Avenue du Président Wilson 93210 Saint-Denis" aria-pressed="false">214 avenue du Président Wilson<span>Saint-Denis</span></button>
+            <button type="button" data-demo="2" data-lon="2.380117" data-lat="48.80945" data-libelle="4 Rue Michelet 94200 Ivry-sur-Seine" aria-pressed="false">4 rue Michelet<span>Ivry-sur-Seine</span></button>
+            <button type="button" data-demo="3" data-lon="2.328647" data-lat="48.795337" data-libelle="41 Rue Marcel Bonnet 94230 Cachan" aria-pressed="false">41 rue Marcel Bonnet<span>Cachan</span></button>
           </div>
-          <div>
-            <span class="numero">02</span>
-            <h3>Un rayon</h3>
-            <p>Les autorisations accordées sur la parcelle, sur ses voisines et dans un rayon de 100 à 500 m, à imprimer ou à télécharger en tableau.</p>
+          <div class="demo-rayon">
+            <label for="demo-rayon">Rayon</label>
+            <input id="demo-rayon" type="range" min="0" max="3" step="1" value="2" aria-valuetext="300 mètres">
+            <output id="demo-rayon-valeur" for="demo-rayon">300 m</output>
+            <span class="graduations" aria-hidden="true"><span>100</span><span>200</span><span>300</span><span>500</span></span>
           </div>
-          <div>
-            <span class="numero">03</span>
-            <h3>Chaque dossier</h3>
-            <p>Nature des travaux, logements et surface créés, date de décision et parcelles concernées, même renumérotées depuis.</p>
-          </div>
+          <div class="demo-resultat" aria-live="polite"><p class="demo-attente">Chargement des autorisations…</p></div>
         </div>
+        <figure class="demo-plan">
+          <svg id="demo-svg" viewBox="-345 -345 690 690" role="img" aria-labelledby="demo-plan-legende"></svg>
+          <figcaption id="demo-plan-legende">Plan cadastral réel. En bleu, les parcelles qui portent au moins une autorisation
+            accordée depuis <span data-info="debut-recent">2021</span> ; en pointillé, le rayon et les limites de communes.</figcaption>
+        </figure>
       </div>
     </section>
 

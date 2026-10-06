@@ -1150,6 +1150,112 @@ function initAvantOuverture() {
   });
 }
 
+/* ---------- Accueil : démonstration sur de vraies adresses ---------- */
+// Quatre adresses fixes et un rayon : nombre d'autorisations, types, plus grands projets (comme l'aperçu public) et plan
+// des parcelles réelles autour, en SVG. Les communes ne se chargent que lorsque la section approche de l'écran.
+
+const RAYONS_DEMO = [100, 200, 300, 500];
+const PLAN_DEMO = 560;  // m : parcelles dessinées autour de l'adresse, un peu au-delà du plus grand rayon
+const FLECHE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+const demo = {i: 0, rayon: 300, numero: 0, dessinee: null, vue: 345, nombre: null, animation: 0};
+const sobre = matchMedia("(prefers-reduced-motion: reduce)");
+
+function initDemo() {
+  const section = document.getElementById("demo");
+  const curseur = document.getElementById("demo-rayon");
+  document.querySelectorAll('[data-info="debut-recent"]').forEach(el => { el.textContent = debutRecent; });
+  section.querySelector(".demo-adresses").addEventListener("click", e => {
+    const b = e.target.closest("[data-demo]");
+    if (!b || b.getAttribute("aria-pressed") === "true") return;
+    section.querySelectorAll("[data-demo]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    demo.i = Number(b.dataset.demo);
+    majDemo();
+  });
+  curseur.addEventListener("input", () => {
+    demo.rayon = RAYONS_DEMO[Number(curseur.value)];
+    document.getElementById("demo-rayon-valeur").textContent = `${demo.rayon} m`;
+    curseur.setAttribute("aria-valuetext", `${demo.rayon} mètres`);
+    majDemo();
+  });
+  new IntersectionObserver((entrees, obs) => {  // pas de téléchargement tant que la section est loin de l'écran
+    if (entrees.some(e => e.isIntersecting)) { obs.disconnect(); majDemo(); }
+  }, {rootMargin: "400px"}).observe(section);
+}
+
+async function majDemo() {
+  const b = document.querySelector(`[data-demo="${demo.i}"]`), lon = Number(b.dataset.lon), lat = Number(b.dataset.lat);
+  const resultat = document.querySelector(".demo-resultat"), n = ++demo.numero;
+  const manquantes = communesAutour(lon, lat, PLAN_DEMO).filter(c => !pretes.has(c));
+  if (manquantes.length) {
+    resultat.setAttribute("aria-busy", "true");
+    try { await Promise.all(manquantes.map(chargerCommune)); }
+    catch {
+      if (n === demo.numero) resultat.innerHTML = `<p class="demo-attente">Les autorisations n'ont pas pu être chargées. Vérifiez votre connexion.</p>`;
+      return;
+    }
+    if (n !== demo.numero) return;  // une autre adresse a été choisie entre-temps
+  }
+  resultat.removeAttribute("aria-busy");
+  const liste = [...rechercher(lon, lat, demo.rayon).dansRayon.keys()].map(id => parId.get(id));
+  const parType = ORDRE_TYPES.map(t => [t, liste.filter(d => d.type === t).length]).filter(([, k]) => k);
+  const lien = new URLSearchParams({lon: lon.toFixed(6), lat: lat.toFixed(6), r: demo.rayon, l: b.dataset.libelle, p: "housenumber", c: communeAuPoint(lon, lat) || ""});
+  resultat.innerHTML = `
+    <p class="demo-nombre"><span class="valeur">${nombre.format(demo.nombre ?? liste.length)}</span>
+      ${liste.length > 1 ? "autorisations" : "autorisation"} à moins de ${demo.rayon}&nbsp;m depuis ${etat.depuis}</p>
+    ${parType.length ? `<ul class="apercu-types" aria-label="Par type">${parType.map(([t, k]) => `<li>${sigleType(t)}<span>${nombre.format(k)}</span></li>`).join("")}</ul>` : ""}
+    ${liste.length ? `<ul class="demo-projets">${extraitsProjets(liste).map(d => `<li>${sigleType(d.type)}<span>${esc(projet(d))}</span></li>`).join("")}</ul>`
+      : `<p class="demo-attente">Aucune autorisation si près : élargissez le rayon.</p>`}
+    <a class="demo-lien" href="#${lien}">Voir le rapport de cette adresse${FLECHE}</a>`;
+  compter(resultat.querySelector(".valeur"), demo.nombre ?? liste.length, liste.length);
+  demo.nombre = liste.length;
+  if (demo.dessinee !== demo.i) { dessinerPlan(lon, lat); demo.dessinee = demo.i; }
+  const avecAutorisation = new Set(liste.flatMap(d => d.actuelles));
+  document.querySelectorAll("#demo-svg .parcelles path").forEach(el => el.classList.toggle("autorisee", avecAutorisation.has(el.dataset.id)));
+  cadrerPlan(demo.rayon);
+}
+
+function compter(el, depuis, vers) {  // le grand chiffre défile jusqu'à sa nouvelle valeur
+  if (sobre.matches || depuis === vers) { el.textContent = nombre.format(vers); return; }
+  const debut = performance.now(), duree = 450;
+  const pas = t => {
+    const k = Math.min(1, (t - debut) / duree), e = 1 - Math.pow(2, -10 * k);
+    el.textContent = nombre.format(Math.round(depuis + (vers - depuis) * e));
+    if (k < 1 && el.isConnected) requestAnimationFrame(pas);
+  };
+  requestAnimationFrame(pas);
+}
+
+function dessinerPlan(lon, lat) {  // parcelles actuelles et limites de communes autour de l'adresse, en mètres, nord en haut
+  const kx = Math.PI / 180 * R_TERRE * Math.cos(lat * Math.PI / 180), ky = Math.PI / 180 * R_TERRE;
+  const bx0 = lon - PLAN_DEMO / kx, bx1 = lon + PLAN_DEMO / kx, by0 = lat - PLAN_DEMO / ky, by1 = lat + PLAN_DEMO / ky;
+  const trace = g => polygones(g).map(poly => poly.map(a => "M" + a.map(([x, y]) =>
+    `${((x - lon) * kx).toFixed(1)} ${((lat - y) * ky).toFixed(1)}`).join("L") + "Z").join("")).join("");
+  const proche = ([x0, y0, x1, y1]) => x1 >= bx0 && x0 <= bx1 && y1 >= by0 && y0 <= by1;
+  const parcelles = [...toutes].filter(([, p]) => p.actuelle && proche(p.emprise))
+    .map(([id, p]) => `<path data-id="${id}" d="${trace(p.geom)}"/>`).join("");
+  const limites = contours.features.filter(f => proche(f.emprise)).map(f => `<path d="${trace(f.geometry)}"/>`).join("");
+  document.getElementById("demo-svg").innerHTML = `<g class="parcelles">${parcelles}</g><g class="limites">${limites}</g>
+    <circle class="cercle" r="${demo.rayon}"/><circle class="point" r="4"/>`;
+}
+
+function cadrerPlan(rayon) {  // le plan s'éloigne ou se rapproche : le cercle garde sa taille à l'écran, le quartier change d'échelle
+  const svg = document.getElementById("demo-svg"), cercle = svg.querySelector(".cercle"), point = svg.querySelector(".point");
+  const depart = demo.vue, arrivee = rayon * 1.15, debut = performance.now(), duree = sobre.matches ? 0 : 650, numero = ++demo.animation;
+  const poser = v => {
+    svg.setAttribute("viewBox", `${-v} ${-v} ${2 * v} ${2 * v}`);
+    cercle.setAttribute("r", (v / 1.15).toFixed(1));
+    point.setAttribute("r", (v * .024).toFixed(2));
+    demo.vue = v;
+  };
+  const pas = t => {
+    if (numero !== demo.animation) return;
+    const k = duree ? Math.min(1, (t - debut) / duree) : 1, e = 1 - Math.pow(2, -10 * k);
+    poser(depart + (arrivee - depart) * e);
+    if (k < 1) requestAnimationFrame(pas);
+  };
+  if (!duree) poser(arrivee); else requestAnimationFrame(pas);
+}
+
 /* ---------- Navigation (l'état de la vue vit dans l'URL : liens partageables) ---------- */
 
 function naviguer(params) {  // objet de paramètres, ou fragment tel quel ("explorer")
@@ -1425,6 +1531,7 @@ async function demarrer() {
   for (const f of contours.features) f.emprise = emprise(f.geometry);
   remplirAccueil();
   initFiltres();
+  initDemo();
   initActions();
   lireUrl();
 }
