@@ -77,7 +77,8 @@ python3 scripts/evaluation.py 93 94              # recherche à l'adresse de cha
 for c in $(python3 scripts/communes.py 93 94); do python3 scripts/02_cadastre.py $c; done   # idem 03, 04 : par commune
 
 python3 scripts/recherche.py "27 bis rue du Progrès, Montreuil" [--rayon 300] [--csv rapport.csv] [--insee 93048]
-python3 scripts/05_site.py [INSEE]               # -> site/data/<INSEE>/{parcelles,anciennes,dossiers,meta}.json
+python3 scripts/05_site.py [INSEE]               # -> site/data/<INSEE>/{parcelles,anciennes,dossiers,adresses,meta}.json (boucle sur communes.py comme 02)
+python3 scripts/06_index.py 93 94                # -> site/data/{communes,contours}.json : index lu au démarrage du site
 python3 -m http.server 8765 --directory site     # aperçu local : http://localhost:8765
 python3 design/accueil_preuve.py                 # -> site/accueil/plan-{avant,apres}.svg + bloc avant/après de site/index.html
 ```
@@ -87,6 +88,8 @@ Accueil : carré avant / après repris d'impeccable.style (plan réel de Montreu
 Pré-ouverture (`app.js`, section « Avant l'ouverture ») : sans code bêta, une recherche, la carte de la commune ou un lien vers une parcelle n'affichent qu'un aperçu (nombre et types) avec la liste d'attente. `CODES_BETA` : empreintes SHA-256 des codes, en minuscules ; `LISTE_ATTENTE` : URL du formulaire Brevo, vide tant que le compte n'existe pas (rien n'est alors enregistré). Le verrou vit dans le navigateur (`localStorage`) : ce n'est pas une protection, les données sont publiques.
 
 Site : après modification de `app.js` ou `style.css`, incrémenter `?v=` dans `index.html` (sinon le navigateur garde l'ancienne version en cache).
+
+Site multi-communes (6 octobre 2026) : au démarrage, seul l'index (`communes.json`, 24 ko, et `contours.json`, 283 ko) est lu ; une vue charge ensuite les communes dont elle a besoin (rapport : communes dont le contour est à moins du rayon + 30 m ; parcelle : sa commune ; `#explorer=<INSEE>` : la commune, `#explorer` seul : liste des 86 communes). Poids : 0,4 Mo compressé par commune en médiane, 1,4 Mo au plus (254 Mo bruts, 35 Mo compressés au total). Les suggestions d'adresse sont filtrées sur les communes couvertes ; un rayon qui sort de la zone est signalé.
 
 - `parcelles.geojson` : toutes les parcelles vues au moins une fois, avec leur dernière géométrie connue (`idu, contenance, premier_millesime, dernier_millesime, actuelle`).
 - `autorisations_parcelles.csv` : diagnostic de la jointure, une ligne par fichier source × autorisation × référence cadastrale (`fichier, type_dau, num_dau, rang, section, numero, idu, statut, dernier_millesime, date_autorisation`). `statut` : `actuelle` (présente dans le dernier millésime), `ancienne` (disparue depuis), `introuvable`.

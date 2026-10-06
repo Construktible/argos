@@ -8,7 +8,10 @@ Prépare les données du site public (site/data/<INSEE>/) à partir du jeu conso
                   et `actuelles` (parcelles actuelles concernées : directes, successeurs des anciennes, ou parcelle
                   de l'adresse pour un dossier localisé par géocodage)
   adresses.json   numéros de rue de la commune (Base Adresse Nationale), affichés sur la carte pour se repérer
-  meta.json       millésimes, date de génération, emprise, effectifs
+  meta.json       millésimes, date de génération, emprise, effectifs, année de départ (communes.DEBUT_FIABLE)
+
+Dans les communes de communes.DEBUT_FIABLE, les dossiers autorisés avant l'année fiable sont écartés (numéros de
+parcelle tronqués dans SITADEL) et comptés dans meta.json (`ecartes`).
 
 Entrées : data/<INSEE>/dossiers.csv, dossiers_parcelles.csv, parcelles.geojson (sorties de 02 à 04),
           doc_source/ban/adresses-<DEP>.csv.gz (https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/)
@@ -26,7 +29,7 @@ from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
 
-from communes import departement, nom as nom_commune
+from communes import DEBUT_FIABLE, departement, nom as nom_commune
 from recherche import ROOT, Index, contient, polygones
 
 PART_MIN = 0.05  # part de la surface d'une parcelle disparue pour qu'une parcelle actuelle soit dite successeur
@@ -68,7 +71,9 @@ def main():
                 return i
         return None
 
-    anciennes_liees = {p for ps in idx.liens.values() for p in ps} - actuelles
+    debut = DEBUT_FIABLE.get(insee)
+    gardes = {i for i, r in idx.dossiers.items() if not debut or r["date_autorisation"][:4] >= str(debut)}
+    anciennes_liees = {p for i in gardes for p in idx.liens.get(i, ())} - actuelles
     successeurs = {}
     for a in sorted(anciennes_liees):
         geom = idx.parcelles[a]["geometry"]
@@ -79,6 +84,8 @@ def main():
 
     dossiers = []
     for i, r in idx.dossiers.items():
+        if i not in gardes:
+            continue
         directes = sorted(idx.liens.get(i, ()))
         concernees = {p for p in directes if p in actuelles} | {s for p in directes if p in successeurs for s in successeurs[p]}
         if r["localisation"] == "adresse":
@@ -118,6 +125,7 @@ def main():
         "emprise": [min(e[0] for e in emprises), min(e[1] for e in emprises), max(e[2] for e in emprises), max(e[3] for e in emprises)],
         "dossiers": len(dossiers), "non_localises": sum(d["localisation"] == "aucune" for d in dossiers),
         "premiere_annee": min(d["date_autorisation"][:4] for d in dossiers if d["date_autorisation"]),
+        "debut_fiable": debut, "ecartes": len(idx.dossiers) - len(gardes),
     })
 
     sans_successeur = sum(not s for s in successeurs.values())

@@ -2,10 +2,10 @@
 /* Argos · site public : autorisations d'urbanisme parcelle par parcelle, et dans un rayon autour d'une adresse.
    Même logique que scripts/recherche.py : point d'adresse rapproché dans la parcelle actuelle la plus proche,
    parcelles actuelles et anciennes au point, parcelles voisines, distance au contour des parcelles pour le rayon.
-   Données préparées par scripts/05_site.py. Direction visuelle : design/DESIGN.md. */
+   Données préparées par scripts/05_site.py (une commune par dossier) et 06_index.py (index des communes et contours) :
+   seules les communes touchées par la vue sont chargées. Direction visuelle : design/DESIGN.md. */
 
-const INSEE = "93048";
-const DONNEES = `data/${INSEE}`;
+const DONNEES = "data";
 const GEOCODEUR = "https://data.geopf.fr/geocodage/search";
 const STYLE_PLAN = "https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/gris.json";
 const TUILES_PHOTO = "https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS"
@@ -14,6 +14,7 @@ const R_TERRE = 6371008.8;
 const TOLERANCE_VOIE = 25;  // m : distance max entre le point de l'adresse et la parcelle la plus proche
 const RENTREE = 0.5;        // m : le point rapproché est placé à cette distance à l'intérieur du contour
 const VOISINAGE = 10;       // m : au-delà de la parcelle la plus proche, parcelles dites voisines
+const MARGE_ZONE = 30;      // m : tolérance sur les contours de communes (simplifiés) pour charger une commune et repérer le bord de zone
 const RAYONS = [100, 200, 300, 500];
 const ANS_RECENTS = 5;  // période par défaut : les 5 dernières années des données, l'historique complet reste à un clic
 const COULEUR_AUTORISATION = "#2a78d6";  // parcelles du rayon portant au moins une autorisation
@@ -36,7 +37,13 @@ const toutes = new Map();          // idu -> {geom, emprise, actuelle, contenanc
 const predecesseurs = new Map();   // idu actuelle -> [idu anciennes]
 const parParcelle = new Map();     // idu actuelle -> [dossiers]
 const parId = new Map();
-let meta, dossiers, geoParcelles, geoAnciennes, carte, marqueur, infobulle;
+const infoCommune = new Map();     // insee -> entrée de communes.json (nom, emprise, effectifs, année de départ)
+const chargements = new Map();     // insee -> promesse du chargement de la commune
+const pretes = new Set();          // communes chargées
+const collection = () => ({type: "FeatureCollection", features: []});
+const geoParcelles = collection(), geoAnciennes = collection(), geoAdresses = collection();  // communes chargées, réunies
+let zone, contours, carte, marqueur, infobulle;  // zone : communes.json ; contours : contours.json
+let dossiers = [];
 let debutRecent;  // première année de la période par défaut
 let cartePrete = false;  // nos couches ajoutées ; isStyleLoaded() reste faux tant qu'une icône du fond IGN manque
 
@@ -53,7 +60,7 @@ const nomType = (t, n) => n > 1 ? TYPES_PLURIEL[t] : TYPES[t];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 const pluriel = (n, mot, motPluriel = `${mot}s`) => `${nombre.format(n)} ${n > 1 ? motPluriel : mot}`;
 const numeroDossier = d => `${d.type} ${d.num.slice(0, 3)} ${d.num.slice(3, 6)} ${d.num.slice(6, 8)} ${d.num.slice(8)}`;
-const nomParcelle = id => `${id.slice(8, 10).replace(/^0/, "")} ${Number(id.slice(10))}`;
+const nomParcelle = id => `${id.slice(5, 8) === "000" ? "" : `${id.slice(5, 8)} `}${id.slice(8, 10).replace(/^0/, "")} ${Number(id.slice(10))}`;  // préfixe : ancienne commune fusionnée
 const annee = s => s ? s.slice(0, 4) : "";
 const parDateDesc = (a, b) => (b.date_autorisation || "").localeCompare(a.date_autorisation || "") || a.id.localeCompare(b.id);
 const dansPeriode = d => Number(annee(d.date_autorisation) || etat.depuis) >= etat.depuis;
@@ -192,6 +199,92 @@ function rechercher(lon0, lat0, rayon) {
   return {auPoint, rapproche, surParcelle, voisines, dansRayon, dansRayonTous, plusAnciennes};
 }
 
+/* ---------- Zone couverte : communes à charger, bord de zone ---------- */
+
+function distancesCommunes(lon0, lat0, marge) {  // [insee, distance du point au contour (0 dedans)] des communes à moins de `marge`
+  const kx = Math.PI / 180 * R_TERRE * Math.cos(lat0 * Math.PI / 180), ky = Math.PI / 180 * R_TERRE;
+  const res = [];
+  for (const f of contours.features) {
+    const [x0, y0, x1, y1] = f.emprise;
+    if (x1 < lon0 - marge / kx || x0 > lon0 + marge / kx || y1 < lat0 - marge / ky || y0 > lat0 + marge / ky) continue;
+    const polys = polygones(f.geometry).map(poly => poly.map(a => a.map(([x, y]) => [(x - lon0) * kx, (y - lat0) * ky])));
+    const d = plusProche(polys)[0];
+    if (d <= marge) res.push([f.properties.insee, d]);
+  }
+  return res;
+}
+
+const communesAutour = (lon, lat, rayon) => distancesCommunes(lon, lat, rayon + MARGE_ZONE).map(([insee]) => insee);
+const dansZone = (lon, lat) => distancesCommunes(lon, lat, MARGE_ZONE).length > 0;
+
+function communeAuPoint(lon, lat) {  // commune qui contient le point, sinon la plus proche à moins de MARGE_ZONE
+  const ds = distancesCommunes(lon, lat, MARGE_ZONE).sort((a, b) => a[1] - b[1]);
+  return ds.length ? ds[0][0] : null;
+}
+
+function horsZone(lon, lat, rayon) {  // "adresse" : le point est hors zone ; "rayon" : une partie du cercle l'est
+  if (!dansZone(lon, lat)) return "adresse";
+  return cercle(lon, lat, rayon, 32).geometry.coordinates[0].some(([x, y]) => !dansZone(x, y)) ? "rayon" : "";
+}
+
+function communesVue(v) {  // communes dont la vue a besoin
+  const connue = i => infoCommune.has(i);
+  if (v.mode === "commune") return connue(v.insee) ? [v.insee] : [];
+  if (v.mode === "parcelle") return connue(v.id.slice(0, 5)) ? [v.id.slice(0, 5)] : [];
+  return communesAutour(v.lon, v.lat, Math.max(etat.rayon, TOLERANCE_VOIE + VOISINAGE));
+}
+
+function communeVue(v) {  // commune de rattachement de la vue, pour le retour à « toute la commune »
+  if (v.mode === "commune") return v.insee;
+  if (v.mode === "parcelle") return v.id.slice(0, 5);
+  return communeAuPoint(v.lon, v.lat) || (infoCommune.has(v.commune) ? v.commune : "");
+}
+
+function chargerCommune(insee) {
+  if (!chargements.has(insee)) {
+    const lire = f => fetch(`${DONNEES}/${insee}/${f}`).then(r => { if (!r.ok) throw new Error(f); return r.json(); });
+    chargements.set(insee, Promise.all(["parcelles.json", "anciennes.json", "dossiers.json", "adresses.json"].map(lire))
+      .then(fichiers => integrer(insee, ...fichiers))
+      .catch(e => { chargements.delete(insee); throw e; }));
+  }
+  return chargements.get(insee);
+}
+
+function integrer(insee, parcelles, anciennes, ds, adresses) {  // données d'une commune ajoutées à celles déjà chargées
+  for (const f of parcelles.features) {
+    toutes.set(f.properties.id, {geom: f.geometry, emprise: emprise(f.geometry), actuelle: true, contenance: f.properties.c});
+  }
+  for (const f of anciennes.features) {
+    const p = f.properties;
+    toutes.set(p.id, {geom: f.geometry, emprise: emprise(f.geometry), actuelle: false, premier: p.premier, dernier: p.dernier});
+    for (const s of p.successeurs) predecesseurs.set(s, [...(predecesseurs.get(s) || []), p.id]);
+  }
+  for (const d of ds) {
+    d.insee = insee;
+    d.lon = d.lon === "" ? null : Number(d.lon);
+    d.lat = d.lat === "" ? null : Number(d.lat);
+    parId.set(d.id, d);
+    for (const p of d.actuelles) parParcelle.set(p, [...(parParcelle.get(p) || []), d]);
+  }
+  dossiers = dossiers.concat(ds);
+  geoParcelles.features.push(...parcelles.features);
+  geoAnciennes.features.push(...anciennes.features);
+  geoAdresses.features.push(...adresses.features);
+  pretes.add(insee);
+  if (cartePrete) {
+    carte.getSource("parcelles").setData(geoParcelles);
+    carte.getSource("anciennes").setData(geoAnciennes);
+    carte.getSource("adresses").setData(geoAdresses);
+  }
+}
+
+function noteDebut(insees, toujours = false) {  // communes où SITADEL n'est fiable qu'à partir d'une année (scripts/communes.py)
+  const cs = insees.map(i => infoCommune.get(i)).filter(c => c?.debut_fiable && (toujours || etat.depuis < c.debut_fiable));
+  if (!cs.length) return "";
+  return `<p class="alerte">${cs.map(c => `À ${esc(c.commune)}, autorisations recensées depuis ${c.debut_fiable} seulement`).join(" ; ")} :
+    avant, les numéros de parcelle de SITADEL sont erronés.</p>`;
+}
+
 /* ---------- Rendu de la liste ---------- */
 
 function sigleType(t, classe = "badge") {  // sigle du type dans sa couleur ; les lecteurs d'écran lisent le nom complet
@@ -227,7 +320,7 @@ function tuile(valeur, libelle) {
 }
 
 function lienPeriode(nAnciennes) {  // un clic pour l'historique complet, ou pour revenir à la période par défaut
-  const premiere = Number(meta.premiere_annee);
+  const premiere = Number(zone.premiere_annee);
   if (etat.depuis < debutRecent) return `<button type="button" class="lien-periode" data-depuis="${debutRecent}">N'afficher que les autorisations depuis ${debutRecent}</button>`;
   if (!nAnciennes) return "";
   const annees = etat.depuis - 1 > premiere ? `de ${premiere} à ${etat.depuis - 1}` : `de ${premiere}`;
@@ -418,14 +511,33 @@ function htmlFicheParcelle(id) {  // fiche de la parcelle cliquée sur la carte 
 
 /* ---------- Vues : toute la commune, une parcelle, un rapport dans un rayon ---------- */
 
-function vueCommune() {  // carte de toute la commune, sans adresse
-  const visibles = dossiers.filter(visible);
+function listeCommunes() {  // communes couvertes, par département : chacune ouvre sa carte
+  return Object.entries(zone.departements).map(([dep, nom]) => `
+    <h3>${esc(nom)}</h3>
+    <ul class="liste-communes">${zone.communes.filter(c => c.departement === dep)
+      .map(c => `<li><a href="#explorer=${c.insee}">${esc(c.commune)}</a></li>`).join("")}</ul>`).join("");
+}
+
+function vueZone() {  // aucune commune choisie : la liste, et la carte des contours
+  return `
+    <h2>Choisissez une commune</h2>
+    <p>Cliquez sur une commune de la carte ou de la liste, ou cherchez une adresse pour voir les autorisations d'un rayon autour.</p>
+    ${listeCommunes()}`;
+}
+
+function vueCommune(insee) {  // carte de toute la commune, sans adresse
+  const c = infoCommune.get(insee);
+  if (!c) return vueZone();
+  const ds = dossiers.filter(d => d.insee === insee), visibles = ds.filter(visible);
   const {logements, surface} = totaux(visibles);
   const parType = Object.keys(TYPES).map(t => [t, visibles.filter(d => d.type === t).length]).filter(([, n]) => n);
+  const nonLocalises = ds.filter(d => d.localisation === "aucune").sort(parDateDesc), n = nonLocalises.length;
   return `
-    <h2>Toute la commune</h2>
+    <button class="retour" data-action="zone">← Toutes les communes</button>
+    <h2>${esc(c.commune)}</h2>
     <p>Cliquez sur une parcelle de la carte pour voir ses autorisations, y compris celles déposées sous d'anciens numéros,
        ou cherchez une adresse pour voir celles d'un rayon autour.</p>
+    ${noteDebut([insee], true)}
     <div class="chiffres">
       ${tuile(nombre.format(visibles.length), `autorisations accordées depuis ${etat.depuis}`)}
       ${tuile(nombre.format(logements), "logements créés")}
@@ -433,30 +545,31 @@ function vueCommune() {  // carte de toute la commune, sans adresse
     </div>
     <p class="precision-chiffres">${parType.map(([t, n]) => `${nombre.format(n)} ${nomType(t, n)}`).join(" · ")}.
       Logements et surfaces hors autorisations annulées.</p>
-    ${lienPeriode(dossiers.filter(d => etat.types.has(d.type) && !dansPeriode(d)).length)}
+    ${lienPeriode(ds.filter(d => etat.types.has(d.type) && !dansPeriode(d)).length)}
     ${legendeSigles()}
+    ${n ? `<details class="non-localisees"><summary>${pluriel(n, "autorisation n'a", "autorisations n'ont")} pas pu être
+      placée${n > 1 ? "s" : ""} sur la carte (ni adresse exploitable, ni parcelle retrouvée)</summary>${listeDossiers(nonLocalises)}</details>` : ""}
     <p class="note"><a href="#donnees">Ce que contiennent les données, et ce qu'elles ne contiennent pas</a></p>`;
 }
 
-function remplirAccueil() {  // chiffres et dates de l'accueil, lus dans les données
-  const {logements, surface} = totaux(dossiers);
-  const nonLocalises = dossiers.filter(d => d.localisation === "aucune").sort(parDateDesc);
-  const n = nonLocalises.length;
+function remplirAccueil() {  // chiffres et dates de l'accueil, lus dans l'index des communes
+  const n = zone.non_localises, fiables = zone.communes.filter(c => c.debut_fiable)
+    .sort((a, b) => a.debut_fiable - b.debut_fiable || a.commune.localeCompare(b.commune));
   const info = {
-    commune: meta.commune,
-    insee: meta.insee,
-    premiere_annee: meta.premiere_annee,
-    sitadel: moisFr(meta.sitadel),
-    cadastre: moisFr(meta.cadastre),
-    genere: dateFr(meta.genere),
-    bilan: `À ${meta.commune} : ${pluriel(dossiers.length, "autorisation accordée", "autorisations accordées")} depuis ${meta.premiere_annee},
-      ${pluriel(logements, "logement créé", "logements créés")} et ${milliers(surface)} m² de surface de plancher créés.`,
-    "non-localisees": `${pluriel(n, "autorisation n'a", "autorisations n'ont")} pas pu être localisée${n > 1 ? "s" : ""}
-      (ni adresse exploitable, ni parcelle retrouvée).`,
+    premiere_annee: zone.premiere_annee,
+    communes: nombre.format(zone.communes.length),
+    sitadel: moisFr(zone.sitadel),
+    cadastre: moisFr(zone.cadastre),
+    genere: dateFr(zone.genere),
+    bilan: `${pluriel(zone.dossiers, "autorisation accordée", "autorisations accordées")} depuis ${zone.premiere_annee}
+      dans ${zone.communes.length} communes, ${pluriel(zone.logements, "logement créé", "logements créés")}
+      et ${milliers(zone.surface)} m² de surface de plancher créés.`,
+    "non-localisees": `${pluriel(n, "autorisation n'a", "autorisations n'ont")} pas pu être placée${n > 1 ? "s" : ""} sur la carte
+      (ni adresse exploitable, ni parcelle retrouvée) : elles sont listées sur la page de chaque commune.`,
+    "debut-fiable": `Dans ${fiables.length} communes, les autorisations ne sont recensées qu'à partir d'une année récente, les numéros
+      de parcelle de SITADEL étant erronés avant : ${fiables.map(c => `${c.commune} depuis ${c.debut_fiable}`).join(", ")}.`,
   };
   document.querySelectorAll("[data-info]").forEach(el => { if (el.dataset.info in info) el.textContent = info[el.dataset.info]; });
-  document.getElementById("liste-non-localisees").innerHTML = n
-    ? `<details><summary>${n > 1 ? "Voir les autorisations non localisées" : "Voir l'autorisation non localisée"}</summary>${listeDossiers(nonLocalises)}</details>` : "";
 }
 
 function origineDans(d, idParcelle) {
@@ -515,13 +628,17 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
   const localisation = `${precision}${res.rapproche ? ` Point de l'adresse à ${nombre.format(Math.round(res.rapproche))} m de la parcelle la plus proche, sur la voie.` : ""}`;
   const filtres = `Depuis ${etat.depuis}${etat.types.size < 4 ? `, ${[...etat.types].join(", ")} seulement` : ""}. Logements et surfaces hors autorisations annulées.`;
   const approximative = !["housenumber", "parcelle"].includes(v.precision) ? `<p class="alerte">${precision} Les distances sont indicatives.</p>` : "";
-  const horsCommune = v.commune && v.commune !== INSEE
-    ? `<p class="alerte">Adresse hors de ${esc(meta.commune)} : seules les autorisations de ${esc(meta.commune)} sont prises en compte.</p>` : "";
+  const departements = Object.values(zone.departements).join(" et ");
+  const bord = horsZone(v.lon, v.lat, etat.rayon);
+  const horsCommune = (bord === "adresse"
+    ? `<p class="alerte">Adresse hors de la zone couverte (${esc(departements)}) : seules les autorisations de ces départements sont prises en compte.</p>`
+    : bord === "rayon" ? `<p class="alerte">Une partie du rayon sort de la zone couverte (${esc(departements)}) : les autorisations au-delà ne sont pas recensées.</p>`
+    : "") + noteDebut(communesAutour(v.lon, v.lat, etat.rayon));
   const titreParcelle = `Sur la parcelle${parcellesAuPoint.length > 1 ? "s" : ""} ${parcellesAuPoint.join(", ")}${anciennesAuPoint.length
     ? ` <span class="note">(et ancienne${anciennesAuPoint.length > 1 ? "s" : ""} ${anciennesAuPoint.join(", ")})</span>` : ""}`;
   const distance = d => res.dansRayon.get(d.id) ?? null;
   const notePied = `≈ : autorisation localisée à la rue seulement. Distances mesurées jusqu'au contour des parcelles.
-      Données SITADEL de ${moisFr(meta.sitadel)}.`;
+      Données SITADEL de ${moisFr(zone.sitadel)}.`;
   const typesMasques = etat.types.size < Object.keys(TYPES).length;
 
   let liste;
@@ -595,10 +712,10 @@ function vueRapport(v) {  // écran : synthèse et cartes de dossier ; impressio
 
 function rendre() {
   const v = etat.vue;
-  if (v.mode === "parcelle" && !toutes.has(v.id)) etat.vue = {mode: "commune"};
+  if (v.mode === "parcelle" && !toutes.has(v.id)) etat.vue = {mode: "commune", insee: v.id.slice(0, 5)};
   etat.resultat = null;
   etat.surligne = etat.survol = etat.pointee = etat.parcelle = etat.retourParcelle = null;
-  document.getElementById("vue").innerHTML = etat.vue.mode === "commune" ? vueCommune()
+  document.getElementById("vue").innerHTML = etat.vue.mode === "commune" ? vueCommune(etat.vue.insee)
     : etat.vue.mode === "parcelle" ? vueParcelle(etat.vue.id) : vueRapport(etat.vue);
   rendreFiltres();
   majFiche();
@@ -616,10 +733,10 @@ function rendreFiltres() {  // les types se choisissent dans la légende des sig
 }
 
 function initFiltres() {
-  const derniere = Math.max(...dossiers.map(d => Number(annee(d.date_autorisation)) || 0));
+  const premiere = Number(zone.premiere_annee), derniere = Number(zone.derniere_annee);
   const choix = document.getElementById("filtre-depuis");
-  for (let a = Number(meta.premiere_annee); a <= derniere; a++) choix.add(new Option(String(a), String(a)));
-  debutRecent = Math.max(Number(meta.premiere_annee), derniere - ANS_RECENTS);
+  for (let a = premiere; a <= derniere; a++) choix.add(new Option(String(a), String(a)));
+  debutRecent = Math.max(premiere, derniere - ANS_RECENTS);
   etat.depuis = debutRecent;
   choix.value = String(debutRecent);
   choix.addEventListener("change", () => changerPeriode(Number(choix.value)));
@@ -787,7 +904,9 @@ function annonceVue() {  // résumé de la vue, à la place de toute la liste
   const v = etat.vue;
   if (v.mode === "rapport") return document.querySelector("#vue .synthese")?.textContent ?? "";
   if (v.mode === "parcelle") return `Parcelle ${nomParcelle(v.id)} : ${nombreAutorisations(...autorisationsParcelle(v.id))}`;
-  return `Toute la commune : ${pluriel(dossiers.filter(visible).length, "autorisation")} depuis ${etat.depuis}`;
+  const c = infoCommune.get(v.insee);
+  if (!c) return "Choisissez une commune";
+  return `${c.commune} : ${pluriel(dossiers.filter(d => d.insee === v.insee && visible(d)).length, "autorisation")} depuis ${etat.depuis}`;
 }
 
 function pointerParcelle(id) {  // survol d'une parcelle sur la carte : ses autorisations du rayon mises en avant dans la liste
@@ -808,8 +927,8 @@ function pointerParcelle(id) {  // survol d'une parcelle sur la carte : ses auto
 
 function cadrer() {
   const v = etat.vue;
-  let b = meta.emprise, zoomMax = 16;
-  if (v?.mode === "parcelle") { b = toutes.get(v.id).emprise; zoomMax = 18; }
+  let b = (v?.mode === "commune" && infoCommune.get(v.insee)?.emprise) || zone.emprise, zoomMax = 16;
+  if (v?.mode === "parcelle" && toutes.has(v.id)) { b = toutes.get(v.id).emprise; zoomMax = 18; }
   if (v?.mode === "rapport") b = emprise(cercle(v.lon, v.lat, etat.rayon).geometry);
   carte.fitBounds([[b[0], b[1]], [b[2], b[3]]], {padding: {top: 40, right: 56, bottom: 40, left: 40}, maxZoom: zoomMax, duration: 600});
 }
@@ -847,10 +966,12 @@ class ControleRecentrer {
   onRemove() { this.div.remove(); }
 }
 
+const enVueZone = () => etat.vue?.mode === "commune" && !infoCommune.has(etat.vue.insee);  // aucune commune choisie
+
 function initCarte() {
   carte = new maplibregl.Map({
-    container: "carte", style: STYLE_PLAN, bounds: meta.emprise, fitBoundsOptions: {padding: 20},
-    minZoom: 11, maxZoom: 19.5, attributionControl: false,
+    container: "carte", style: STYLE_PLAN, bounds: zone.emprise, fitBoundsOptions: {padding: 20},
+    minZoom: 9, maxZoom: 19.5, attributionControl: false,
   });
   carte.addControl(new maplibregl.NavigationControl({showCompass: false}), "top-right");
   carte.addControl(new ControleRecentrer(), "top-right");
@@ -866,6 +987,9 @@ function initCarte() {
     carte.addSource("parcelles", {type: "geojson", data: geoParcelles, promoteId: "id"});
     carte.addSource("anciennes", {type: "geojson", data: geoAnciennes, promoteId: "id"});
     carte.addSource("rayon", {type: "geojson", data: {type: "FeatureCollection", features: []}});
+    carte.addSource("communes", {type: "geojson", data: contours});
+    carte.addLayer({id: "communes-contour", type: "line", source: "communes",  // limites des communes couvertes : le bord de zone se voit
+      paint: {"line-color": "#3f4349", "line-opacity": .45, "line-width": ["interpolate", ["linear"], ["zoom"], 9, .8, 15, 1.6]}}, avant);
     carte.addLayer({id: "parcelles-clic", type: "fill", source: "parcelles", paint: {"fill-color": TRANSPARENT}}, avant);
     carte.addLayer({id: "parcelles-autorisations", type: "fill", source: "parcelles", filter: ["in", ["get", "id"], ["literal", []]],
       paint: {"fill-color": COULEUR_AUTORISATION, "fill-opacity": .7}}, avant);
@@ -889,7 +1013,7 @@ function initCarte() {
       paint: {"line-color": ENCRE, "line-width": 2.5}}, avant);
     carte.addLayer({id: "parcelle-ouverte", type: "line", source: "parcelles", filter: ["==", ["get", "id"], ""],
       paint: {"line-color": ENCRE, "line-width": 3}}, avant);
-    carte.addSource("adresses", {type: "geojson", data: `${DONNEES}/adresses.json`});
+    carte.addSource("adresses", {type: "geojson", data: geoAdresses});
     carte.addLayer({id: "numeros", type: "symbol", source: "adresses", minzoom: 16.5,  // numéros de rue, pour se repérer
       layout: {"text-field": ["get", "n"], "text-font": ["Source Sans Pro Regular"], "text-size": 11.5},
       paint: {"text-color": "#3d3c39", "text-halo-color": "#ffffff", "text-halo-width": 1.4}});
@@ -900,7 +1024,20 @@ function initCarte() {
   });
 
   infobulle = new maplibregl.Popup({closeButton: false, closeOnClick: false, offset: 10, maxWidth: "260px"});
+  carte.on("mousemove", e => {  // carte de toutes les communes : nom de la commune survolée
+    if (!enVueZone()) return;
+    const c = infoCommune.get(communeAuPoint(e.lngLat.lng, e.lngLat.lat));
+    carte.getCanvas().style.cursor = c ? "pointer" : "";
+    if (c) infobulle.setLngLat(e.lngLat).setHTML(`<strong>${esc(c.commune)}</strong><br>Cliquer pour voir la commune`).addTo(carte);
+    else infobulle.remove();
+  });
+  carte.on("click", e => {
+    if (!enVueZone()) return;
+    const insee = communeAuPoint(e.lngLat.lng, e.lngLat.lat);
+    if (insee) { infobulle.remove(); naviguer(`explorer=${insee}`); }
+  });
   carte.on("mousemove", "parcelles-clic", e => {
+    if (enVueZone()) return;
     const id = e.features[0].properties.id, [liste, anciennes] = autorisationsParcelle(id);
     const autres = !liste.length && anciennes ? ` (${pluriel(anciennes, "plus ancienne", "plus anciennes")})` : "";
     carte.getCanvas().style.cursor = "pointer";
@@ -908,7 +1045,7 @@ function initCarte() {
     pointerParcelle(id);
   });
   carte.on("mouseleave", "parcelles-clic", () => { carte.getCanvas().style.cursor = ""; infobulle.remove(); pointerParcelle(null); });
-  carte.on("click", "parcelles-clic", e => ouvrirParcelle(e.features[0].properties.id));
+  carte.on("click", "parcelles-clic", e => { if (!enVueZone()) ouvrirParcelle(e.features[0].properties.id); });
 }
 
 /* ---------- Avant l'ouverture : aperçu, liste d'attente, accès bêta ---------- */
@@ -927,17 +1064,19 @@ function estBeta() {
 }
 
 function htmlApercu(v) {  // nombre d'autorisations de la période par défaut et répartition par type, sans aucun détail
-  let liste, ou;
-  if (v.mode === "commune" || (v.mode === "parcelle" && !toutes.has(v.id))) {
-    liste = dossiers.filter(dansPeriode);
-    ou = `à ${esc(meta.commune)}`;
+  let liste, ou, lieu;
+  const insee = v.mode === "commune" ? v.insee : v.mode === "parcelle" && !toutes.has(v.id) ? v.id.slice(0, 5) : null;
+  if (insee !== null && !infoCommune.has(insee)) return `<h2 id="apercu-titre" tabindex="-1">Choisissez une commune</h2>${listeCommunes()}`;
+  if (insee) {
+    liste = dossiers.filter(d => d.insee === insee && dansPeriode(d));
+    ou = `à ${esc(infoCommune.get(insee).commune)}`;
+    lieu = `Toute la commune de ${infoCommune.get(insee).commune}`;
   } else {
     const [lon, lat] = v.mode === "parcelle" ? centroide(toutes.get(v.id).geom) : [v.lon, v.lat];
     liste = [...rechercher(lon, lat, etat.rayon).dansRayon.keys()].map(id => parId.get(id));
     ou = `à moins de ${etat.rayon}&nbsp;m`;
+    lieu = v.mode === "rapport" ? autourDe(v) : `Autour de la parcelle ${nomParcelle(v.id)}`;
   }
-  const lieu = v.mode === "rapport" ? autourDe(v) : v.mode === "parcelle" && toutes.has(v.id)
-    ? `Autour de la parcelle ${nomParcelle(v.id)}` : `Toute la commune de ${meta.commune}`;
   const parType = Object.fromEntries(ORDRE_TYPES.map(t => [t, liste.filter(d => d.type === t).length]));
   const types = ORDRE_TYPES.filter(t => parType[t]).map(t => `<li>${sigleType(t)}<span>${nombre.format(parType[t])}</span></li>`).join("");
   return `
@@ -948,10 +1087,10 @@ function htmlApercu(v) {  // nombre d'autorisations de la période par défaut e
       Le détail (adresses, projets, carte et rapport imprimable) sera ouvert à tous prochainement.</p>`;
 }
 
-function montrerApercu() {  // à la place des résultats, sous la barre de recherche de l'accueil
+function montrerApercu(chargement = false) {  // à la place des résultats, sous la barre de recherche de l'accueil
   const bloc = document.getElementById("apercu"), resume = bloc.querySelector(".apercu-resume");
   bloc.hidden = false;
-  if (!dossiers) { resume.innerHTML = `<h2 id="apercu-titre" tabindex="-1">Chargement des données…</h2>`; return; }  // demarrer() rappelle lireUrl
+  if (chargement) { resume.innerHTML = `<h2 id="apercu-titre" tabindex="-1">Chargement des données…</h2>`; return; }  // lireUrl rappelée une fois chargées
   resume.innerHTML = htmlApercu(etat.vue);
   if (etat.vue.mode === "rapport") document.getElementById("q-accueil").value = etat.vue.libelle;
   bloc.scrollIntoView({block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"});
@@ -1011,6 +1150,8 @@ function montrerEcran(carteVisible) {  // accueil sans carte, ou liste et carte
   window.scrollTo(0, 0);
 }
 
+let numeroVue = 0;  // dernière vue demandée : un chargement plus lent ne l'écrase pas
+
 function lireUrl() {
   const h = new URLSearchParams(location.hash.slice(1));
   const r = Number(h.get("r"));
@@ -1018,7 +1159,7 @@ function lireUrl() {
   if (h.has("parcelle")) etat.vue = {mode: "parcelle", id: h.get("parcelle")};
   else if (h.has("lon") && h.has("lat")) etat.vue = {mode: "rapport", lon: Number(h.get("lon")), lat: Number(h.get("lat")),
     libelle: h.get("l") || "Point choisi", precision: h.get("p") || "", commune: h.get("c") || ""};
-  else if (h.has("explorer")) etat.vue = {mode: "commune"};
+  else if (h.has("explorer")) etat.vue = {mode: "commune", insee: h.get("explorer")};
   else etat.vue = null;
   const ouvert = estBeta();  // avant l'ouverture, seuls les bêta-testeurs voient les résultats
   montrerEcran(Boolean(etat.vue) && ouvert);
@@ -1027,8 +1168,15 @@ function lireUrl() {
     if (h.has("donnees")) document.getElementById("donnees").scrollIntoView(); else window.scrollTo(0, 0);
     return;
   }
+  if (!zone) { if (!ouvert) montrerApercu(true); return; }  // index en cours de chargement : demarrer() rappelle lireUrl
+  const manquantes = communesVue(etat.vue).filter(c => !pretes.has(c)), n = ++numeroVue;
+  if (manquantes.length) {  // communes à charger d'abord ; seule la dernière vue demandée s'affiche
+    if (!ouvert) montrerApercu(true);
+    else document.getElementById("vue").innerHTML = `<p class="chargement">Chargement des données…</p>`;
+    Promise.all(manquantes.map(chargerCommune)).then(() => { if (n === numeroVue) lireUrl(); }, () => { if (n === numeroVue) echecChargement(); });
+    return;
+  }
   if (!ouvert) { montrerApercu(); return; }
-  if (!dossiers) return;  // données en cours de chargement : « Chargement des données… » reste affiché, demarrer() rappelle lireUrl
   if (!carte) initCarte(); else carte.resize();  // carte créée à la première visite : son conteneur doit avoir une taille
   rendre();
   if (cartePrete) cadrer();
@@ -1043,7 +1191,7 @@ function rapportAutourDe(lon, lat, libelle, precision, commune) {
 
 function rapportParcelle(id) {  // rapport centré sur la parcelle
   const [lon, lat] = centroide(toutes.get(id).geom);
-  rapportAutourDe(lon, lat, `Parcelle ${nomParcelle(id)}`, "parcelle", INSEE);
+  rapportAutourDe(lon, lat, `Parcelle ${nomParcelle(id)}`, "parcelle", id.slice(0, 5));
 }
 
 /* ---------- Recherche d'adresse (autocomplétion du géocodeur de l'IGN) ---------- */
@@ -1051,12 +1199,14 @@ function rapportParcelle(id) {  // rapport centré sur la parcelle
 function initRecherche(form) {  // barre de l'accueil et barre de l'en-tête
   const champ = form.querySelector("input[type=search]"), liste = form.querySelector(".suggestions");
   let suggestions = [], pour = "", actif = -1, minuteur, numero = 0, panne = false;  // panne : le géocodeur n'a pas répondu
+  let ailleurs = false;  // adresses trouvées, mais toutes hors de la zone couverte
 
   const fermer = () => { liste.hidden = true; champ.setAttribute("aria-expanded", "false"); champ.removeAttribute("aria-activedescendant"); };
   const afficher = () => {
     liste.innerHTML = suggestions.length
       ? suggestions.map((f, i) => `<li role="option" id="${liste.id}-${i}" data-i="${i}" aria-selected="${i === actif}">${esc(f.properties.label)}</li>`).join("")
       : `<li class="aucune" role="option" aria-disabled="true">${panne ? "Le service d'adresses de l'IGN ne répond pas. Réessayez dans un instant."
+        : ailleurs ? `Argos ne couvre pour l'instant que la ${esc(Object.values(zone.departements).join(" et le "))}.`
         : "Aucune adresse trouvée : vérifiez le nom de la rue."}</li>`;
     liste.hidden = false;
     champ.setAttribute("aria-expanded", "true");
@@ -1064,14 +1214,16 @@ function initRecherche(form) {  // barre de l'accueil et barre de l'en-tête
   };
   const suggerer = async q => {
     const n = ++numero;
-    const centre = meta ? {lon: (meta.emprise[0] + meta.emprise[2]) / 2, lat: (meta.emprise[1] + meta.emprise[3]) / 2} : {};  // avant le chargement : sans priorité à la commune
-    const url = `${GEOCODEUR}?${new URLSearchParams({q, autocomplete: 1, index: "address", limit: 6, ...centre})}`;
+    const centre = zone ? {lon: (zone.emprise[0] + zone.emprise[2]) / 2, lat: (zone.emprise[1] + zone.emprise[3]) / 2} : {};  // avant le chargement : sans priorité à la zone
+    const url = `${GEOCODEUR}?${new URLSearchParams({q, autocomplete: 1, index: "address", limit: zone ? 15 : 6, ...centre})}`;
     try {
       const r = await fetch(url);
       if (!r.ok) throw new Error(String(r.status));
       const j = await r.json();
       if (n !== numero) return [];
-      suggestions = j.features || [];
+      const trouvees = j.features || [];  // le géocodeur ne filtre pas par département : on ne garde que les communes couvertes
+      suggestions = zone ? trouvees.filter(f => infoCommune.has(f.properties.citycode)).slice(0, 6) : trouvees;
+      ailleurs = trouvees.length > 0 && !suggestions.length;
       pour = q;
       panne = false;
     } catch {
@@ -1191,7 +1343,8 @@ function initActions() {
     if (b.dataset.tri) { etat.tri = b.dataset.tri; rendre(); return; }
     if (b.dataset.depuis) { changerPeriode(Number(b.dataset.depuis)); return; }
     const action = b.dataset.action;
-    if (action === "commune") naviguer("explorer");
+    if (action === "commune") naviguer(communeVue(etat.vue) ? `explorer=${communeVue(etat.vue)}` : "explorer");
+    if (action === "zone") naviguer("explorer");
     if (action === "rayon-parcelle") rapportParcelle(etat.vue.id);
     if (action === "csv" || action === "imprimer") b.closest("details")?.removeAttribute("open");
     if (action === "csv") exporterCsv();
@@ -1232,7 +1385,8 @@ function echecChargement() {  // données injoignables : le dire, et proposer de
   const erreur = `<div class="alerte" role="alert"><p>Les données n'ont pas pu être chargées. Vérifiez votre connexion.</p>
     <button type="button" class="action" data-recharger>Réessayer</button></div>`;
   document.getElementById("vue").innerHTML = erreur;
-  document.querySelector("[data-info=bilan]").outerHTML = erreur;
+  document.querySelector("#apercu .apercu-resume").innerHTML = erreur;
+  if (!zone) document.querySelector("[data-info=bilan]")?.replaceWith(document.createRange().createContextualFragment(erreur));
   document.querySelectorAll("[data-recharger]").forEach(b => b.addEventListener("click", () => location.reload()));
 }
 
@@ -1240,29 +1394,18 @@ async function demarrer() {
   montrerEcran(ecranCarte(new URLSearchParams(location.hash.slice(1))) && estBeta());  // l'accueil s'affiche sans attendre les données
   initAvantOuverture();
   initAffichage();
-  document.querySelectorAll("form[role=search]").forEach(initRecherche);  // la recherche n'attend pas les ~7 Mo de données
+  document.querySelectorAll("form[role=search]").forEach(initRecherche);  // la recherche n'attend pas l'index
   window.addEventListener("hashchange", lireUrl);  // une adresse choisie pendant le chargement ouvre l'écran de résultat
   const lire = f => fetch(`${DONNEES}/${f}`).then(r => { if (!r.ok) throw new Error(f); return r.json(); });
   try {
-    [meta, geoParcelles, geoAnciennes, dossiers] = await Promise.all(["meta.json", "parcelles.json", "anciennes.json", "dossiers.json"].map(lire));
+    [zone, contours] = await Promise.all(["communes.json", "contours.json"].map(lire));
   } catch {
+    zone = null;
     echecChargement();
     return;
   }
-  for (const f of geoParcelles.features) {
-    toutes.set(f.properties.id, {geom: f.geometry, emprise: emprise(f.geometry), actuelle: true, contenance: f.properties.c});
-  }
-  for (const f of geoAnciennes.features) {
-    const p = f.properties;
-    toutes.set(p.id, {geom: f.geometry, emprise: emprise(f.geometry), actuelle: false, premier: p.premier, dernier: p.dernier});
-    for (const s of p.successeurs) predecesseurs.set(s, [...(predecesseurs.get(s) || []), p.id]);
-  }
-  for (const d of dossiers) {
-    d.lon = d.lon === "" ? null : Number(d.lon);
-    d.lat = d.lat === "" ? null : Number(d.lat);
-    parId.set(d.id, d);
-    for (const p of d.actuelles) parParcelle.set(p, [...(parParcelle.get(p) || []), d]);
-  }
+  for (const c of zone.communes) infoCommune.set(c.insee, c);
+  for (const f of contours.features) f.emprise = emprise(f.geometry);
   remplirAccueil();
   initFiltres();
   initActions();

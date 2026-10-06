@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Argos · Autorisations d'urbanisme à Montreuil</title>
-<meta name="description" content="Permis de construire, déclarations préalables, permis d'aménager et de démolir accordés à Montreuil depuis 2013 : parcelle par parcelle, et dans un rayon autour d'une adresse.">
+<title>Argos · Autorisations d'urbanisme en Seine-Saint-Denis et dans le Val-de-Marne</title>
+<meta name="description" content="Permis de construire, déclarations préalables, permis d'aménager et de démolir accordés en Seine-Saint-Denis et dans le Val-de-Marne depuis 2013 : parcelle par parcelle, et dans un rayon autour d'une adresse.">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://data.geopf.fr; connect-src 'self' https://data.geopf.fr; worker-src blob:; child-src blob:; font-src 'self'">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=36">
+<link rel="stylesheet" href="style.css?v=37">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous" defer></script>
-<script src="app.js?v=32" defer></script>
+<script src="app.js?v=33" defer></script>
 <script src="preuve.js?v=1" defer></script>
 </head>
 <body>
@@ -29,7 +29,7 @@
     <nav class="accueil-nav" aria-label="Navigation principale">
       <a href="#explorer">Explorer la carte</a>
       <a href="#donnees">Les données</a>
-      <span class="pastille">Pilote · <span data-info="commune">Montreuil</span> <span data-info="insee">93048</span></span>
+      <span class="pastille">Pilote · Seine-Saint-Denis et Val-de-Marne</span>
     </nav>
   </header>
 
@@ -39,11 +39,11 @@
         <div class="hero-texte">
           <h1>Ce qui va changer autour de vous, avant que ça se voie.</h1>
           <p class="chapo">Permis de construire, d'aménager, de démolir et déclarations préalables accordés
-            à <span data-info="commune">Montreuil</span> depuis <span data-info="premiere_annee">2013</span>,
+            en Seine-Saint-Denis et dans le Val-de-Marne depuis <span data-info="premiere_annee">2013</span>,
             autour d'une adresse ou sur une parcelle.</p>
 
           <form class="grande-recherche" id="recherche-accueil" role="search" autocomplete="off">
-            <label for="q-accueil">Une adresse à <span data-info="commune">Montreuil</span></label>
+            <label for="q-accueil">Une adresse en Seine-Saint-Denis ou dans le Val-de-Marne</label>
             <div class="zone-barre">
               <div class="barre">
                 <svg class="epingle" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
@@ -54,9 +54,9 @@
               <ul id="suggestions-accueil" class="suggestions" role="listbox" aria-label="Adresses proposées" hidden></ul>
             </div>
             <p class="exemples">Essayer :
-              <button type="button" data-q="27 bis rue du Progrès, Montreuil">27 bis rue du Progrès</button>
-              <button type="button" data-q="44 rue Cuvier, Montreuil">44 rue Cuvier</button>
-              <button type="button" data-q="24 rue Rochebrune, Montreuil">24 rue Rochebrune</button>
+              <button type="button" data-q="27 bis rue du Progrès, Montreuil">27 bis rue du Progrès, Montreuil</button>
+              <button type="button" data-q="29 rue Édouard Vaillant, Saint-Ouen-sur-Seine">29 rue Édouard Vaillant, Saint-Ouen</button>
+              <button type="button" data-q="41 rue Marcel Bonnet, Cachan">41 rue Marcel Bonnet, Cachan</button>
             </p>
           </form>
 
@@ -133,7 +133,7 @@
           <div>
             <span class="numero">01</span>
             <h3>Une adresse</h3>
-            <p>Saisissez une adresse à <span data-info="commune">Montreuil</span> : Argos retrouve la parcelle cadastrale qui lui correspond.</p>
+            <p>Saisissez une adresse en Seine-Saint-Denis ou dans le Val-de-Marne : Argos retrouve la parcelle cadastrale qui lui correspond.</p>
           </div>
           <div>
             <span class="numero">02</span>
@@ -159,7 +159,7 @@
           <div><dt>Source</dt><dd>SITADEL · SDES</dd></div>
           <div><dt>Parcelles</dt><dd>Cadastre Etalab, de 2017 à <span data-info="cadastre"></span></dd></div>
           <div><dt>Données à jour de</dt><dd data-info="sitadel"></dd></div>
-          <div><dt>Couverture</dt><dd><span data-info="commune">Montreuil</span> (<span data-info="insee">93048</span>) · pilote</dd></div>
+          <div><dt>Couverture</dt><dd>Seine-Saint-Denis (93) et Val-de-Marne (94), <span data-info="communes">86</span> communes · pilote</dd></div>
         </dl>
         <div class="limites">
           <h3>Ce que les données ne contiennent pas</h3>
@@ -170,8 +170,9 @@
               des petites extensions de maison.</li>
             <li>L'état d'avancement (commencé, terminé, annulé) n'est pas toujours mis à jour : un chantier achevé peut rester « autorisé ».</li>
             <li data-info="non-localisees"></li>
+            <li data-info="debut-fiable"></li>
+            <li>Paris et les autres départements ne sont pas couverts : près de leurs limites, une partie du rayon reste vide.</li>
           </ul>
-          <div id="liste-non-localisees"></div>
         </div>
         <p class="sources">Autorisations : base SITADEL, service statistique du ministère chargé du logement (SDES).
           Parcelles : plan cadastral de la DGFiP diffusé par Etalab. Adresses et fonds de carte : IGN, Géoplateforme
@@ -182,7 +183,7 @@
   </main>
 
   <footer class="pied">
-    <span>argos · projet personnel, sans lien avec la Ville de <span data-info="commune">Montreuil</span> ni avec une administration.</span>
+    <span>argos · projet personnel, sans lien avec les communes couvertes ni avec une administration.</span>
     <span class="mono">Données publiques · Licence Ouverte 2.0</span>
   </footer>
 </div>
@@ -198,7 +199,7 @@
       </svg>
       <span class="titre-texte">
         <span class="marque">argos</span>
-        <span class="sous-marque">Autorisations d'urbanisme à <span data-info="commune">Montreuil</span></span>
+        <span class="sous-marque">Autorisations d'urbanisme · 93 et 94</span>
       </span>
     </a>
     <form class="recherche" id="form-recherche" role="search" autocomplete="off">

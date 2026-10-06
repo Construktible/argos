@@ -2,7 +2,7 @@
 doc_source/
 
 # Données de travail, régénérées par scripts/ (272 Mo pour le 93 et le 94)
-data/
+/data/
 
 # Réglages locaux
 .claude/

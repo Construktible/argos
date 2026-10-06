@@ -160,6 +160,10 @@ button, input, select { font: inherit; color: inherit; }
 .sous-titre { font-size: .9rem; }
 .note { font-size: .88rem; }
 .alerte { padding: 8px 10px; border-left: 3px solid var(--trait-fort); background: var(--surface-2); font-size: .88rem; }
+.liste-communes { columns: 2 11rem; column-gap: 24px; margin: 0 0 20px; padding: 0; list-style: none; font-size: .92rem; }
+.liste-communes li { break-inside: avoid; margin: 0 0 5px; }
+.non-localisees { margin: 16px 0; font-size: .88rem; }
+.non-localisees summary { cursor: pointer; }
 .retour { align-self: flex-start; padding: 4px 0; border: 0; background: none; color: var(--lien); cursor: pointer; font-size: .88rem; }
 .retour:hover { text-decoration: underline; }
 .lien-periode {  /* historique complet, ou retour à la période par défaut */
