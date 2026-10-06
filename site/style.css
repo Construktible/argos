@@ -25,9 +25,6 @@
   --autorisation: #2a78d6;    /* carte : parcelles portant au moins une autorisation (une seule couleur) */
   --surlignage: #ffe600;      /* carte : autorisation cliquée dans la liste */
   --surlignage-fond: #fff4a8; /* liste : la même autorisation, en fond de ligne */
-  --motif-bord: #e2ded4;      /* motif décoratif de l'accueil : rues et anneaux */
-  --motif-voie: #faf9f6;
-  --motif-anneau: #cfcac0;
   --lien: var(--encre);
   --rayon: 8px;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -49,9 +46,6 @@
     --trait-fort: #4a4d52;
     --anneau: rgba(241, 239, 234, .10);
     --surlignage-fond: #4a4413;
-    --motif-bord: #23272b;
-    --motif-voie: #181b1e;
-    --motif-anneau: #3a3e43;
   }
 }
 [data-type="PC"] { --t: var(--pc); --sur-t: #ffffff; }
@@ -507,32 +501,251 @@ ul.dossiers { list-style: none; margin: 0; padding: 0; border-top: 1px solid var
 .accueil-nav a:hover { text-decoration: underline; }
 .pastille { padding: 6px 12px; border: 1px solid var(--trait-fort); border-radius: 999px; font-family: var(--mono); font-size: 12px; color: var(--encre-3); }
 
-.hero {
-  position: relative;
-  overflow: hidden;
-  padding: clamp(56px, 9vw, 120px) clamp(16px, 4vw, 48px) clamp(64px, 9vw, 112px);
-  border-bottom: 1px solid var(--trait);
-}
-.motif { position: absolute; left: calc(50% - 800px); top: calc(50% - 450px); pointer-events: none; }
-.motif .bord { stroke: var(--motif-bord); }
-.motif .voie { stroke: var(--motif-voie); }
-.motif .anneaux { stroke: var(--motif-anneau); stroke-width: 1; }
-.motif .points circle { fill: var(--t); fill-opacity: .55; }
-.hero-contenu {
-  position: relative;
-  max-width: 860px;
+.hero { padding: clamp(40px, 7vw, 104px) clamp(16px, 4vw, 48px) clamp(56px, 8vw, 112px); border-bottom: 1px solid var(--trait); }
+.hero-grille {  /* texte d'abord dans le code (titre et recherche en tête au clavier), carré à gauche à l'écran */
+  max-width: 1240px;
   margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(40px, 5vw, 88px);
+}
+.hero-grille .scene { grid-column: 1; grid-row: 1; }
+.hero-texte { grid-column: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 22px; }
+.surtitre { margin: 0; font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--encre-3); }
+.hero h1 { margin: 0; font-size: clamp(38px, 4.4vw, 62px); line-height: 1.04; font-weight: 600; letter-spacing: -.028em; text-wrap: balance; }
+.chapo { margin: 0; max-width: 56ch; font-size: 18px; line-height: 1.55; color: var(--encre-2); }
+@media (max-width: 1080px) {  /* une colonne : la recherche d'abord, le carré ensuite */
+  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 56px; }
+  .hero-grille .scene, .hero-texte { grid-column: 1; grid-row: auto; }
+  .hero-grille .scene { justify-self: center; width: min(100%, 680px); }
+  .hero-texte { max-width: 680px; }
+}
+
+/* Accueil · avant / après (repris d'impeccable.style). Le bloc .preuve est généré par design/accueil_preuve.py :
+   un carré de plan, des questions or accolées à son bord gauche, « Avant » / « Après » en arc aux coins, une
+   couture de 2 px et sa capsule. Couleurs fixes dans le carré : comme la carte du site, il reste clair. */
+@property --position { syntax: "<percentage>"; inherits: true; initial-value: 62%; }
+.scene {
+  --cote: min(460px, 100cqw - 200px);             /* côté du carré ; 200 px à sa gauche pour les questions */
+  container: scene / inline-size;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 22px;
-  text-align: center;
+  align-items: flex-end;
+  gap: 30px;
 }
-.surtitre { margin: 0; font-family: var(--mono); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--encre-3); }
-.hero h1 { margin: 0; font-size: clamp(36px, 5vw, 64px); line-height: 1.04; font-weight: 600; letter-spacing: -.025em; text-wrap: balance; }
-.chapo { margin: 0; max-width: 620px; font-size: 18px; line-height: 1.55; color: var(--encre-2); }
+.preuve {
+  --or: oklch(84% .19 80.46);
+  --encre-or: oklch(4% .004 95);
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --doux: cubic-bezier(.4, 0, .2, 1);              /* départ et arrivée en douceur */
+  position: relative;
+  width: var(--cote);
+  height: var(--cote);
+  margin: 0;
+  color: #1d2125;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.couche { position: absolute; inset: 0; overflow: visible; }
+.couche.avant { z-index: 1; }
+.couche.apres { z-index: 2; clip-path: inset(-48px -48px -48px var(--position)); }
+.plan { position: absolute; inset: 0; }
+.plan-carte { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: 1px solid rgba(29, 33, 37, .1); }
+.avant .plan-carte { border-radius: 8px; border-color: rgba(120, 104, 80, .3); }
+.apres .plan-carte { border-radius: 2px; box-shadow: 0 24px 48px -24px rgba(29, 33, 37, .25); }
 
-.grande-recherche { width: 100%; max-width: 760px; margin-top: 10px; text-align: left; }
+.mention { position: absolute; z-index: 3; width: 80px; height: 80px; overflow: visible; pointer-events: none; }
+.mention text { fill: var(--encre-3); font: 500 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; }
+.mention-avant { top: -40px; left: -40px; }
+.mention-apres { right: -40px; bottom: -40px; }
+
+/* Une question, puis sa réponse quand la couture la dépasse vers la gauche : la question passe en neutre avec
+   une coche (traitée, sans jugement), la réponse apparaît dessous, en bleu comme les parcelles autorisées. */
+.paire {
+  --pas: 70ms;
+  --delai: calc(var(--rang, 0) * var(--pas));
+  position: absolute;
+  top: var(--haut);
+  right: calc(100% + 16px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  transform: translateY(-22px);                   /* le milieu de la question (deux lignes) sur la hauteur voulue */
+  pointer-events: none;
+}
+.question, .reponse { display: block; border-radius: 2px; white-space: nowrap; }  /* lignes coupées à la main */
+.question {
+  position: relative;
+  padding: 4px 8px 5px;
+  border: 1px solid var(--or);
+  background: var(--or);
+  color: var(--encre-or);
+  font: 500 12.5px/1.35 var(--mono);
+  transition: opacity .26s var(--ease) var(--delai), filter .3s var(--ease) var(--delai),
+    transform .34s var(--ease) var(--delai), visibility .34s var(--delai),
+    background-color .9s var(--doux), border-color .9s var(--doux), color .9s var(--doux);
+}
+.question::before {  /* la coche (dessinée), à gauche de l'étiquette : elle grossit sans rien déplacer */
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 6px);
+  width: 12px;
+  height: 12px;
+  background: var(--encre);                        /* hors du carré : suit le thème */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.4l2.6 2.5L10 3.2' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px 12px no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 6.4l2.6 2.5L10 3.2' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px 12px no-repeat;
+  opacity: 0;
+  transform: translateY(-50%) scale(.4);
+  transition: opacity .6s var(--doux), transform .7s var(--doux);
+}
+.question::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -17px;
+  width: 17px;
+  height: 1px;
+  background: var(--or);
+  transform-origin: 0 50%;
+  transition: transform .3s var(--ease) calc(var(--delai) + .13s), background-color .9s var(--doux);
+}
+.reponse {
+  padding: 4px 8px 5px;
+  background: #2a78d6;
+  box-shadow: 0 4px 12px rgba(29, 33, 37, .22);
+  color: #ffffff;
+  font: 600 13px/1.3 var(--sans);
+  opacity: 0;
+  visibility: hidden;
+  filter: blur(4px);
+  transform: translateY(-4px);
+  transition: opacity .35s var(--doux), filter .35s var(--doux), transform .35s var(--doux), visibility .35s;
+}
+.paire.repondue .question { border-color: #1d2125; background: #ffffff; color: #1d2125; }
+.paire.repondue .question::before { opacity: 1; transform: translateY(-50%) scale(1); }
+.paire.repondue .question::after { background: var(--encre); }  /* hors du carré : suit le thème */
+.paire.repondue .reponse {  /* apparaît après le début du changement de couleur, plus lentement qu'elle ne part */
+  opacity: 1;
+  visibility: visible;
+  filter: none;
+  transform: none;
+  transition: opacity 1s var(--doux) .25s, filter 1s var(--doux) .25s, transform 1s var(--doux) .25s, visibility 0s .25s;
+}
+.paire.cachee .question { opacity: 0; visibility: hidden; filter: blur(6px); transform: translateX(10px); transition-delay: 0s; }
+.paire.cachee .question::after { transform: scaleX(0); transition-delay: 0s; }
+
+.projet {  /* autorisations nommées, côté après, reliées à leur parcelle par une tige */
+  position: absolute;
+  z-index: 1;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: #1d2125;
+  box-shadow: 0 4px 12px rgba(29, 33, 37, .25);
+  color: #ffffff;
+  font: 600 12.5px/1.25 var(--sans);
+  white-space: nowrap;
+  transform: translate(-50%, calc(-100% - 12px));
+  pointer-events: none;
+}
+.projet::after { content: ""; position: absolute; top: 100%; left: 50%; width: 1.5px; height: 12px; background: #1d2125; transform: translateX(-50%); }
+
+.adresse-plan {  /* l'adresse, au-dessus des deux états */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: #1d2125;
+  box-shadow: 0 0 0 1.5px #1d2125, 0 4px 10px rgba(29, 33, 37, .3);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.adresse-plan span {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1d2125;
+  color: #ffffff;
+  font: 600 12px/1.2 var(--sans);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.couture {
+  position: absolute;
+  top: -18px;
+  bottom: -18px;
+  left: var(--position);
+  z-index: 7;
+  width: 2px;
+  background: var(--or);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.couture::after {  /* capsule : trois traits de prise, liseré papier, anneau or */
+  --anneau-or: 0 0 0 2px var(--fond-page), 0 0 0 4px var(--or);
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 20px;
+  border-radius: 5px;
+  background: #fdfdfd repeating-linear-gradient(90deg, transparent 0 3px, rgba(29, 33, 37, .3) 3px 4px) center / 12px 9px no-repeat;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 1px 0 rgba(29, 33, 37, .14), 0 2px 3px rgba(29, 33, 37, .08), var(--anneau-or);
+  transform: translate(-50%, -50%);
+}
+.preuve:focus-within .couture::after { --anneau-or: 0 0 0 2px var(--fond-page), 0 0 0 5px var(--or); }
+.preuve.glisse .couture::after { box-shadow: inset 0 1px 2px rgba(29, 33, 37, .14), var(--anneau-or); }
+
+@keyframes guetter {  /* va-et-vient tant qu'on n'a pas touché au curseur */
+  0%, 62%, 100% { --position: 62%; }
+  18% { --position: 74%; }
+  44% { --position: 56%; }
+}
+.preuve.guette { animation: guetter 5.2s cubic-bezier(.45, 0, .2, 1) infinite; }
+
+.curseur {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.curseur::-webkit-slider-thumb { -webkit-appearance: none; width: 40px; height: 2000px; }
+.curseur::-moz-range-thumb { width: 40px; height: 2000px; border: 0; background: transparent; }
+.preuve-legende { margin: 0; width: var(--cote); font: 12px/1.5 var(--mono); color: var(--encre-3); }
+
+@container scene (max-width: 600px) {  /* étroit : les questions se posent dans le carré, sans trait */
+  .preuve, .preuve-legende { --cote: min(460px, 100cqw); }
+  .paire { top: var(--haut-etroit); right: auto; left: 10px; align-items: flex-start; gap: 4px; transform: translateY(-18px); }
+  .question, .reponse { padding: 3px 6px; font-size: 11px; }
+  .paire.cachee .question { transform: translateX(-10px); }
+  .question::after { display: none; }
+  .mention-avant { top: -34px; left: -6px; }
+  .mention-apres { right: -6px; bottom: -34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preuve.guette { animation: none; }
+  .question, .question::before, .question::after, .reponse { transition: none; }
+}
+
+.grande-recherche { width: 100%; max-width: 640px; margin-top: 10px; text-align: left; }
 .grande-recherche label { display: block; margin: 0 0 8px 4px; font-size: 14px; font-weight: 500; color: var(--encre-2); }
 .zone-barre { position: relative; }
 .barre {

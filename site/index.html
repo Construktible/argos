@@ -8,9 +8,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://data.geopf.fr; connect-src 'self' https://data.geopf.fr; worker-src blob:; child-src blob:; font-src 'self'">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css" integrity="sha384-uTttxo/aOKbdE5RlD/SPzSDoDmNvGlUYPjONi2MN/b7c9HPSvW07OIuyP7uL6jxK" crossorigin="anonymous">
 <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=31">
+<link rel="stylesheet" href="style.css?v=34">
 <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js" integrity="sha384-5+cfbwT0iiub6VsQAdn6yz16nr6sDiQoHx6tm4O8OVYXHYOxcffFmCJBL0dgdvGp" crossorigin="anonymous" defer></script>
 <script src="app.js?v=31" defer></script>
+<script src="preuve.js?v=1" defer></script>
 </head>
 <body>
 
@@ -34,71 +35,66 @@
 
   <main>
     <section class="hero">
-      <svg class="motif" aria-hidden="true" width="1600" height="900" viewBox="-800 -450 1600 900">
-        <g fill="none">
-          <g class="bord">
-            <path d="M-800 120 L800 60" stroke-width="28"/>
-            <path d="M380 -450 L470 450" stroke-width="26"/>
-            <path d="M-260 -450 L-190 450" stroke-width="16"/>
-            <path d="M-800 -250 L800 -310" stroke-width="14"/>
-            <path d="M-800 330 L800 290" stroke-width="14"/>
-            <path d="M-620 -450 L-660 450" stroke-width="12"/>
-            <path d="M660 -450 L710 450" stroke-width="12"/>
-          </g>
-          <g class="voie">
-            <path d="M-800 120 L800 60" stroke-width="22"/>
-            <path d="M380 -450 L470 450" stroke-width="20"/>
-            <path d="M-260 -450 L-190 450" stroke-width="11"/>
-            <path d="M-800 -250 L800 -310" stroke-width="9"/>
-            <path d="M-800 330 L800 290" stroke-width="9"/>
-            <path d="M-620 -450 L-660 450" stroke-width="7"/>
-            <path d="M660 -450 L710 450" stroke-width="7"/>
-          </g>
-          <g class="anneaux">
-            <circle r="320"/>
-            <circle r="450" stroke-dasharray="4 7"/>
-            <circle r="600" stroke-opacity=".6"/>
-          </g>
-        </g>
-        <g class="points">
-          <circle cx="-620" cy="-230" r="7" data-type="PC"/>
-          <circle cx="-540" cy="210" r="10" data-type="PA"/>
-          <circle cx="560" cy="-200" r="7" data-type="PD"/>
-          <circle cx="660" cy="170" r="5" data-type="DP"/>
-          <circle cx="-710" cy="20" r="4" data-type="DP"/>
-          <circle cx="720" cy="-40" r="11" data-type="PC"/>
-          <circle cx="500" cy="330" r="5" data-type="DP"/>
-          <circle cx="-440" cy="-350" r="6" data-type="PD"/>
-          <circle cx="-380" cy="340" r="12" data-type="PC"/>
-        </g>
-      </svg>
+      <div class="hero-grille">
+        <div class="hero-texte">
+          <h1>Ce qui va changer autour de vous, avant que ça se voie.</h1>
+          <p class="chapo">Permis de construire, d'aménager, de démolir et déclarations préalables accordés
+            à <span data-info="commune">Montreuil</span> depuis <span data-info="premiere_annee">2013</span>,
+            autour d'une adresse ou sur une parcelle.</p>
 
-      <div class="hero-contenu">
-        <p class="surtitre">Autorisations d'urbanisme · données SITADEL</p>
-        <h1>Qu'est-ce qui se prépare autour de cette adresse&nbsp;?</h1>
-        <p class="chapo">Permis de construire, d'aménager, de démolir et déclarations préalables accordés
-          à <span data-info="commune">Montreuil</span> depuis <span data-info="premiere_annee">2013</span>,
-          autour d'une adresse ou sur une parcelle.</p>
-
-        <form class="grande-recherche" id="recherche-accueil" role="search" autocomplete="off">
-          <label for="q-accueil">Une adresse à <span data-info="commune">Montreuil</span></label>
-          <div class="zone-barre">
-            <div class="barre">
-              <svg class="epingle" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
-              <input id="q-accueil" type="search" placeholder="Ex. 27 bis rue du Progrès" spellcheck="false"
-                     role="combobox" aria-autocomplete="list" aria-controls="suggestions-accueil" aria-expanded="false">
-              <button type="submit" class="bouton-principal">Rechercher</button>
+          <form class="grande-recherche" id="recherche-accueil" role="search" autocomplete="off">
+            <label for="q-accueil">Une adresse à <span data-info="commune">Montreuil</span></label>
+            <div class="zone-barre">
+              <div class="barre">
+                <svg class="epingle" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+                <input id="q-accueil" type="search" placeholder="Ex. 27 bis rue du Progrès" spellcheck="false"
+                       role="combobox" aria-autocomplete="list" aria-controls="suggestions-accueil" aria-expanded="false">
+                <button type="submit" class="bouton-principal">Rechercher</button>
+              </div>
+              <ul id="suggestions-accueil" class="suggestions" role="listbox" aria-label="Adresses proposées" hidden></ul>
             </div>
-            <ul id="suggestions-accueil" class="suggestions" role="listbox" aria-label="Adresses proposées" hidden></ul>
-          </div>
-          <p class="exemples">Essayer :
-            <button type="button" data-q="27 bis rue du Progrès, Montreuil">27 bis rue du Progrès</button>
-            <button type="button" data-q="44 rue Cuvier, Montreuil">44 rue Cuvier</button>
-            <button type="button" data-q="24 rue Rochebrune, Montreuil">24 rue Rochebrune</button>
-          </p>
-        </form>
+            <p class="exemples">Essayer :
+              <button type="button" data-q="27 bis rue du Progrès, Montreuil">27 bis rue du Progrès</button>
+              <button type="button" data-q="44 rue Cuvier, Montreuil">44 rue Cuvier</button>
+              <button type="button" data-q="24 rue Rochebrune, Montreuil">24 rue Rochebrune</button>
+            </p>
+          </form>
 
-        <a class="explorer" href="#explorer">ou explorer directement sur la carte<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+
+          <a class="explorer" href="#explorer">ou explorer directement sur la carte<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        </div>
+
+        <div class="scene">
+        <!-- preuve:debut · généré par design/accueil_preuve.py, ne pas modifier à la main -->
+        <figure class="preuve" style="--position: 62%">
+          <div class="couche avant"><div class="plan">
+            <img class="plan-carte" src="accueil/plan-avant.svg?v=2" alt="" width="600" height="600">
+            <svg class="mention mention-avant" viewBox="0 0 80 80" aria-hidden="true"><path id="arc-avant" d="M 6 40 A 34 34 0 0 1 40 6" fill="none"/><text><textPath href="#arc-avant" startOffset="50%" text-anchor="middle">Avant</textPath></text></svg>
+              <div class="paire" style="--haut:20%;--haut-etroit:8%;--rang:0" data-seuil="35"><span class="question">Qu'est-ce qui va se<br>construire ici ?</span><span class="reponse">Une école, 32 logements,<br>4 maisons…</span></div>
+              <div class="paire" style="--haut:50%;--haut-etroit:58%;--rang:1" data-seuil="24"><span class="question">Un immeuble va-t-il<br>sortir de terre ?</span><span class="reponse">Oui : 32 logements<br>à 130 m</span></div>
+              <div class="paire" style="--haut:80%;--haut-etroit:82%;--rang:2" data-seuil="13"><span class="question">Mon quartier va-t-il<br>changer ?</span><span class="reponse">13 autorisations<br>à moins de 150 m</span></div>
+          </div></div>
+          <div class="couche apres"><div class="plan">
+            <img class="plan-carte" src="accueil/plan-apres.svg?v=2" alt="" width="600" height="600">
+              <span class="projet" style="left:41.45%;top:71.12%">Une école</span>
+              <span class="projet" style="left:90.27%;top:36.06%">32 logements</span>
+              <span class="projet" style="left:59.99%;top:79.71%">4 maisons</span>
+              <span class="projet" style="left:55.38%;top:21.85%">Agrandissement</span>
+              <span class="projet" style="left:23.88%;top:25.49%">Démolition</span>
+              <span class="projet" style="left:20.06%;top:45.32%">Bureaux → logements</span>
+            <svg class="mention mention-apres" viewBox="0 0 80 80" aria-hidden="true"><path id="arc-apres" d="M 40 74 A 34 34 0 0 0 74 40" fill="none"/><text><textPath href="#arc-apres" startOffset="50%" text-anchor="middle">Après</textPath></text></svg>
+          </div></div>
+          <span class="adresse-plan" aria-hidden="true"><span>Votre adresse</span></span>
+          <div class="couture" aria-hidden="true"></div>
+          <input class="curseur" type="range" min="2" max="98" step="any" value="62"
+                 aria-label="Avant / après : glisser pour révéler les autorisations autour de l'adresse">
+          <figcaption class="sr">Illustration : le plan d'un quartier de Montreuil, 150 m autour d'une adresse.
+            Avant : des questions. Après : 13 parcelles portant une autorisation fictive, dont une école,
+            32 logements et 4 maisons.</figcaption>
+        </figure>
+        <p class="preuve-legende">Illustration · plan réel d'un quartier de Montreuil, autorisations fictives</p>
+        <!-- preuve:fin -->
+        </div>
       </div>
     </section>
 

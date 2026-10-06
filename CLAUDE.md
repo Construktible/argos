@@ -76,7 +76,10 @@ python3 scripts/04_dossiers.py [INSEE]           # -> data/<INSEE>/dossiers.csv,
 python3 scripts/recherche.py "27 bis rue du Progrès, Montreuil" [--rayon 300] [--csv rapport.csv] [--insee 93048]
 python3 scripts/05_site.py [INSEE]               # -> site/data/<INSEE>/{parcelles,anciennes,dossiers,meta}.json
 python3 -m http.server 8765 --directory site     # aperçu local : http://localhost:8765
+python3 design/accueil_preuve.py                 # -> site/accueil/plan-{avant,apres}.svg + bloc avant/après de site/index.html
 ```
+
+Accueil : carré avant / après repris d'impeccable.style (plan réel de Montreuil, autorisations **fictives**, la légende le dit). Généré par `design/accueil_preuve.py` à partir du cadastre (`doc_source/cadastre/93048/`, parcelles et `batiments-2026-09-01.json.gz`) ; il remplace le bloc entre `<!-- preuve:debut -->` et `<!-- preuve:fin -->` d'`index.html` : ne pas l'éditer à la main. Script : `site/preuve.js`.
 
 Site : après modification de `app.js` ou `style.css`, incrémenter `?v=` dans `index.html` (sinon le navigateur garde l'ancienne version en cache).
 

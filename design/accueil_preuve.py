@@ -1,27 +1,33 @@
-"""Essai : avant / après sur un vrai fond de plan de Montreuil, autorisations fictives (référence : impeccable.style).
+"""Accueil : le carré avant / après, sur un vrai fond de plan de Montreuil, autorisations fictives.
 
-Écrit site/essais/montreuil.html (styles : montreuil.css, script : montreuil.js). Carré de 300 m autour d'une
-maison du quartier Villiers-Barbusse : parcelles et bâtiments du cadastre Etalab (2026-09-01). Les autorisations
-sont inventées : elles sont posées sur des parcelles choisies pour leur taille, pas tirées de SITADEL.
+Repris du hero d'impeccable.style. Carré de 300 m autour d'une maison du quartier Villiers-Barbusse : parcelles
+et bâtiments du cadastre Etalab (2026-09-01). Les autorisations sont inventées : elles sont posées sur des
+parcelles choisies pour leur taille, pas tirées de SITADEL (la légende du carré le dit).
+
+Écrit site/accueil/plan-avant.svg et plan-apres.svg, et remplace dans site/index.html le bloc compris entre
+<!-- preuve:debut --> et <!-- preuve:fin --> (questions, réponses, libellés, adresse, curseur).
+Styles : bloc « Accueil · avant / après » de site/style.css ; script : site/preuve.js.
 
 Entrées : doc_source/cadastre/93048/2026-09-01.json.gz (parcelles) et batiments-2026-09-01.json.gz.
 """
 import gzip
 import json
 import random
+import re
 from math import cos, hypot, radians
 from pathlib import Path
 
-RACINE = Path(__file__).resolve().parents[2]
+RACINE = Path(__file__).resolve().parents[1]
 CADASTRE = RACINE / "doc_source" / "cadastre" / "93048"
-SORTIE = RACINE / "site" / "essais" / "montreuil.html"
+SITE = RACINE / "site"
 CENTRE = (2.4400, 48.8640)       # Villiers-Barbusse
 DEMI = 150                       # m : le carré fait 300 m de côté
 
-QUESTIONS = [  # (question sur deux lignes, hauteur dans le carré en %, position de la couture qui y répond)
-    ("Qu'est-ce qui va se\nconstruire ici ?", 20, 35),
-    ("Un immeuble va-t-il\nsortir de terre ?", 50, 24),
-    ("Mon quartier va-t-il\nchanger ?", 80, 13),
+QUESTIONS = [  # (question sur deux lignes, hauteur en % hors du carré puis dans le carré (écran étroit, l'adresse
+    #             occupe le centre), position de la couture qui y répond)
+    ("Qu'est-ce qui va se\nconstruire ici ?", 20, 8, 35),
+    ("Un immeuble va-t-il\nsortir de terre ?", 50, 58, 24),
+    ("Mon quartier va-t-il\nchanger ?", 80, 82, 13),
 ]
 # Autorisations fictives : point visé (m depuis l'adresse, y vers le bas), surface de parcelle admise (m²)
 PROJETS = [
@@ -109,24 +115,33 @@ def composer():
     return parcelles, batiments, lieux
 
 
+def visible(pts):
+    """Le polygone touche-t-il le carré ?"""
+    xs, ys = [x for x, _ in pts], [y for _, y in pts]
+    return max(xs) > -DEMI and min(xs) < DEMI and max(ys) > -DEMI and min(ys) < DEMI
+
+
 def chemin(pts):
     return "M" + "L".join(f"{x:.1f} {y:.1f}" for x, y in pts) + "Z"
 
 
 def svg(etat, parcelles, batiments):
+    """Plan autonome (fichier .svg chargé par <img>) : un style par classe plutôt que des attributs répétés."""
     pal = PALETTES[etat]
     apres = etat == "apres"
-    ns = 'vector-effect="non-scaling-stroke"'
-    el = [f'<rect x="{-DEMI - 5}" y="{-DEMI - 5}" width="{2 * DEMI + 10}" height="{2 * DEMI + 10}" fill="{pal["rue"]}"/>']
+    style = (f'path{{stroke-width:.6px;vector-effect:non-scaling-stroke}}'
+             f'.p{{fill:{pal["sol"]};stroke:{pal["bord"]}}}.b{{fill:{pal["bati"]};stroke:{pal["bati_bord"]}}}'
+             f'.pa{{fill:{BLEU};fill-opacity:.5;stroke:{pal["bord"]}}}.ba{{fill:{BLEU_BATI};stroke:{pal["bati_bord"]}}}')
+    el = [f'<rect x="{-DEMI}" y="{-DEMI}" width="{2 * DEMI}" height="{2 * DEMI}" fill="{pal["rue"]}"/>']
     for p in parcelles:
-        fond = f'fill="{BLEU}" fill-opacity=".5"' if apres and p.get("autorisee") else f'fill="{pal["sol"]}"'
-        el.append(f'<path d="{chemin(p["pts"])}" {fond} stroke="{pal["bord"]}" stroke-width=".6" {ns}/>')
+        if visible(p["pts"]):
+            el.append(f'<path class="{"pa" if apres and p.get("autorisee") else "p"}" d="{chemin(p["pts"])}"/>')
     for b in batiments:
-        bleu = apres and b["parcelle"] and b["parcelle"].get("autorisee")
-        el.append(f'<path d="{chemin(b["pts"])}" fill="{BLEU_BATI if bleu else pal["bati"]}" '
-                  f'stroke="{pal["bati_bord"]}" stroke-width=".6" {ns}/>')
-    return (f'<svg viewBox="{-DEMI} {-DEMI} {2 * DEMI} {2 * DEMI}" preserveAspectRatio="xMidYMid slice" '
-            f'aria-hidden="true">{"".join(el)}</svg>')
+        if visible(b["pts"]):
+            bleu = apres and b["parcelle"] and b["parcelle"].get("autorisee")
+            el.append(f'<path class="{"ba" if bleu else "b"}" d="{chemin(b["pts"])}"/>')
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{-DEMI} {-DEMI} {2 * DEMI} {2 * DEMI}" '
+            f'width="600" height="600"><style>{style}</style>{"".join(el)}</svg>\n')
 
 
 def pc(v):
@@ -146,8 +161,7 @@ def arc(etat):
             f'text-anchor="middle">{texte}</textPath></text></svg>')
 
 
-def main():
-    parcelles, batiments, lieux = composer()
+def bloc(parcelles, lieux, version):
     nb = sum(1 for p in parcelles if p.get("autorisee"))
     a_m = lambda libelle: round(hypot(*centroide(lieux[[l["libelle"] for l in PROJETS].index(libelle)]["pts"])) / 10) * 10
     reponses = [  # tirées des autorisations (fictives) posées sur le plan
@@ -156,70 +170,47 @@ def main():
         f"{nb} autorisations\nà moins de {DEMI} m",
     ]
     br = lambda t: t.replace("\n", "<br>")
-    questions = "".join(f'<div class="paire" style="top:{h}%;--rang:{i}" data-seuil="{seuil}">'
-                        f'<span class="question">{br(q)}</span><span class="reponse">{br(r)}</span></div>'
-                        for i, ((q, h, seuil), r) in enumerate(zip(QUESTIONS, reponses)))
-    projets = []
-    for l, p in zip(PROJETS, lieux):
-        x, y = centroide(p["pts"])
-        projets.append(f'<span class="projet" style="left:{pc(x)};top:{pc(y)}">{l["libelle"]}</span>')
-    html = f"""<!doctype html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Argos · essai Montreuil</title>
-<meta name="robots" content="noindex">
-<link rel="stylesheet" href="../style.css?v=31">
-<link rel="stylesheet" href="montreuil.css?v=5">
-</head>
-<body>
-<div class="accueil">
-  <header class="accueil-entete">
-    <a class="titre" href="../" aria-label="Argos, accueil">
-      <svg class="logo" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true">
-        <circle cx="15" cy="15" r="3.6" fill="currentColor"/>
-        <circle cx="15" cy="15" r="8.4" fill="none" stroke="currentColor" stroke-width="1.7"/>
-        <circle cx="15" cy="15" r="13.2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-opacity=".45"/>
-      </svg>
-      <span class="marque">argos</span>
-    </a>
-    <span class="pastille">Essai · Montreuil</span>
-  </header>
-  <main>
-    <section class="hero hero-preuve">
-      <div class="hero-contenu">
-        <p class="surtitre">Autorisations d'urbanisme · données SITADEL</p>
-        <h1>Ce qui va changer autour de vous, avant que ça se voie.</h1>
-      </div>
-      <div class="scene">
+    paires = "".join(f'\n              <div class="paire" style="--haut:{h}%;--haut-etroit:{he}%;--rang:{i}" '
+                     f'data-seuil="{seuil}"><span class="question">{br(q)}</span><span class="reponse">{br(r)}</span></div>'
+                     for i, ((q, h, he, seuil), r) in enumerate(zip(QUESTIONS, reponses)))
+    projets = "".join(f'\n              <span class="projet" style="left:{pc(centroide(p["pts"])[0])};'
+                      f'top:{pc(centroide(p["pts"])[1])}">{l["libelle"]}</span>' for l, p in zip(PROJETS, lieux))
+    return f"""<!-- preuve:debut · généré par design/accueil_preuve.py, ne pas modifier à la main -->
         <figure class="preuve" style="--position: 62%">
-          <div class="couche avant"><article class="plan">
-            <div class="plan-carte">{svg("avant", parcelles, batiments)}</div>{arc("avant")}{questions}
-          </article></div>
-          <div class="couche apres"><article class="plan">
-            <div class="plan-carte">{svg("apres", parcelles, batiments)}</div>{"".join(projets)}{arc("apres")}
-          </article></div>
+          <div class="couche avant"><div class="plan">
+            <img class="plan-carte" src="accueil/plan-avant.svg?v={version}" alt="" width="600" height="600">
+            {arc("avant")}{paires}
+          </div></div>
+          <div class="couche apres"><div class="plan">
+            <img class="plan-carte" src="accueil/plan-apres.svg?v={version}" alt="" width="600" height="600">{projets}
+            {arc("apres")}
+          </div></div>
           <span class="adresse-plan" aria-hidden="true"><span>Votre adresse</span></span>
           <div class="couture" aria-hidden="true"></div>
           <input class="curseur" type="range" min="2" max="98" step="any" value="62"
-                 aria-label="Avant / après : glisser pour révéler les autorisations délivrées autour de l'adresse">
-          <p class="sr">Plan d'un quartier, 150 m autour d'une adresse : avant, des questions ; après, {nb} parcelles
-            portant une autorisation, dont une école, 32 logements et 4 maisons.</p>
+                 aria-label="Avant / après : glisser pour révéler les autorisations autour de l'adresse">
+          <figcaption class="sr">Illustration : le plan d'un quartier de Montreuil, 150 m autour d'une adresse.
+            Avant : des questions. Après : {nb} parcelles portant une autorisation fictive, dont une école,
+            32 logements et 4 maisons.</figcaption>
         </figure>
-      </div>
-      <p class="legende-essai">Glissez pour voir ce qui a été autorisé autour de l'adresse.
-        <span>Fond de plan : cadastre de Montreuil. Autorisations fictives.</span></p>
-    </section>
-  </main>
-</div>
-<script src="montreuil.js?v=3" defer></script>
-</body>
-</html>
-"""
-    SORTIE.write_text(html, encoding="utf-8")
-    print(SORTIE, f"{len(html) // 1024} Ko", nb, "parcelles bleues",
-          [tuple(round(v) for v in centroide(p["pts"])) for p in lieux])
+        <p class="preuve-legende">Illustration · plan réel d'un quartier de Montreuil, autorisations fictives</p>
+        <!-- preuve:fin -->"""
+
+
+def main():
+    parcelles, batiments, lieux = composer()
+    for etat in ("avant", "apres"):
+        (SITE / "accueil" / f"plan-{etat}.svg").write_text(svg(etat, parcelles, batiments), encoding="utf-8")
+    index = SITE / "index.html"
+    html = index.read_text(encoding="utf-8")
+    motif = re.compile(r"<!-- preuve:debut.*?<!-- preuve:fin -->", re.S)
+    if not motif.search(html):
+        raise SystemExit("Repères <!-- preuve:debut --> et <!-- preuve:fin --> introuvables dans site/index.html")
+    version = re.search(r'plan-avant\.svg\?v=(\d+)', html)
+    version = int(version.group(1)) + 1 if version else 1  # les plans changent : le cache du navigateur aussi
+    index.write_text(motif.sub(lambda _: bloc(parcelles, lieux, version), html), encoding="utf-8")
+    tailles = {f.name: f"{f.stat().st_size // 1024} Ko" for f in sorted((SITE / "accueil").glob("*.svg"))}
+    print(index, tailles, sum(1 for p in parcelles if p.get("autorisee")), "parcelles bleues")
 
 
 if __name__ == "__main__":
