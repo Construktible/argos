@@ -1,18 +1,20 @@
-"""Accueil : le carré avant / après, sur un vrai fond de plan de Montreuil, autorisations fictives.
+"""Accueil : le carré avant / après, sur un vrai fond de plan de Montreuil, avec les vraies autorisations.
 
-Repris du hero d'impeccable.style. Carré de 300 m autour d'une maison du quartier Villiers-Barbusse : parcelles
-et bâtiments du cadastre Etalab (2026-09-01). Les autorisations sont inventées : elles sont posées sur des
-parcelles choisies pour leur taille, pas tirées de SITADEL (la légende du carré le dit).
+Repris du hero d'impeccable.style. Carré de 300 m autour d'une maison de l'est de Montreuil (parcelle T 190) :
+parcelles et bâtiments du cadastre Etalab (2026-09-01), autorisations SITADEL accordées depuis DEPUIS sur les
+parcelles à moins de 150 m de la maison (site/data/93048/dossiers.json). Les réponses aux questions et les libellés
+posés sur le plan en sont tirés. Quartier choisi le 6 octobre 2026 pour ce qu'il montre : un immeuble à 50 m, deux
+autres plus loin, une démolition, des petits travaux, un lotissement.
 
 Écrit site/accueil/plan-avant.svg et plan-apres.svg, et remplace dans site/index.html le bloc compris entre
 <!-- preuve:debut --> et <!-- preuve:fin --> (questions, réponses, libellés, adresse, curseur).
 Styles : bloc « Accueil · avant / après » de site/style.css ; script : site/preuve.js.
 
-Entrées : doc_source/cadastre/93048/2026-09-01.json.gz (parcelles) et batiments-2026-09-01.json.gz.
+Entrées : doc_source/cadastre/93048/2026-09-01.json.gz (parcelles) et batiments-2026-09-01.json.gz,
+          site/data/93048/dossiers.json (sortie de scripts/05_site.py).
 """
 import gzip
 import json
-import random
 import re
 from math import cos, hypot, radians
 from pathlib import Path
@@ -20,8 +22,11 @@ from pathlib import Path
 RACINE = Path(__file__).resolve().parents[1]
 CADASTRE = RACINE / "doc_source" / "cadastre" / "93048"
 SITE = RACINE / "site"
-CENTRE = (2.4400, 48.8640)       # Villiers-Barbusse
-DEMI = 150                       # m : le carré fait 300 m de côté
+DOSSIERS = SITE / "data" / "93048" / "dossiers.json"
+CENTRE = (2.45153, 48.86575)     # est de Montreuil, parcelle T 190
+DEMI = 150                       # m : le carré fait 300 m de côté ; autorisations retenues à moins de DEMI m
+DEPUIS = 2021                    # comme la période par défaut du site (5 dernières années)
+LIBELLES_MAX = 6                 # projets nommés sur le plan
 
 QUESTIONS = [  # (question sur deux lignes, hauteur en % hors du carré puis dans le carré (écran étroit, l'adresse
     #             occupe le centre), position de la couture qui y répond)
@@ -29,16 +34,20 @@ QUESTIONS = [  # (question sur deux lignes, hauteur en % hors du carré puis dan
     ("Un immeuble va-t-il\nsortir de terre ?", 50, 58, 24),
     ("Mon quartier va-t-il\nchanger ?", 80, 82, 13),
 ]
-# Autorisations fictives : point visé (m depuis l'adresse, y vers le bas), surface de parcelle admise (m²)
-PROJETS = [
-    dict(pos=(-60, 55), surface=(1500, 9000), libelle="Une école"),
-    dict(pos=(85, -40), surface=(700, 6000), libelle="32 logements"),
-    dict(pos=(55, 90), surface=(300, 1500), libelle="4 maisons"),
-    dict(pos=(35, -95), surface=(100, 400), libelle="Agrandissement"),
-    dict(pos=(-75, -80), surface=(150, 600), libelle="Démolition"),
-    dict(pos=(-90, -35), surface=(400, 2000), libelle="Bureaux → logements"),
-]
-AUTRES_AUTORISATIONS = 7
+COURT = {"atelier d'artisanat": "atelier", "équipement d'intérêt collectif": "équipement", "local industriel": "local",
+         "local non résidentiel": "local", "bâtiment agricole": "bâtiment agricole"}  # destinations, pour les libellés
+CONSTRUCTIONS = {"bureaux": "Bureaux", "commerce": "Commerce", "hôtels": "Hôtel", "industrie": "Local d'activité",
+                 "entrepôt": "Entrepôt", "service public ou d'intérêt collectif": "Équipement public"}
+ARTICLES = {"Démolition": "une démolition", "Agrandissement": "un agrandissement", "Lotissement": "un lotissement",
+            "Commerce": "un commerce", "Bureaux": "des bureaux", "Hôtel": "un hôtel", "Entrepôt": "un entrepôt",
+            "Local d'activité": "un local d'activité", "Équipement public": "un équipement public"}
+PRIORITES = {"Démolition": 1, "Lotissement": 3, "Agrandissement": 4, "1 maison": 4, "1 logement": 4, "Travaux": 9}
+
+
+def priorite(o):
+    """Ordre de présentation : immeubles d'abord, puis démolition, constructions et changements d'usage, lotissement,
+    agrandissements ; les travaux sans objet précis ne sont jamais nommés."""
+    return 0 if o["libelle"].endswith(" logements") else PRIORITES.get(o["libelle"], 2)
 
 PALETTES = {
     "avant": dict(rue="#e6e1d6", sol="#dedad2", bord="#c9c3b7", bati="#c4beb2", bati_bord="#ada79b"),
@@ -64,6 +73,46 @@ def dans(pts, q):
 
 def centroide(pts):
     return sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+
+
+def distance(pts):
+    """Distance de l'adresse (origine) au polygone, 0 dedans."""
+    if dans(pts, (0, 0)):
+        return 0
+    best = float("inf")
+    for (x1, y1), (x2, y2) in zip(pts, pts[1:] + pts[:1]):
+        dx, dy = x2 - x1, y2 - y1
+        t = 0 if dx == dy == 0 else max(0, min(1, -(x1 * dx + y1 * dy) / (dx * dx + dy * dy)))
+        best = min(best, hypot(x1 + t * dx, y1 + t * dy))
+    return best
+
+
+def etiquette(d):
+    """Libellé court d'une autorisation, posé sur le plan (« 11 logements », « Atelier → logement », « Démolition »)."""
+    n, objet = round(float(d["nb_logements_crees"] or 0)), d["objet"] or ""
+    if d["type"] == "PD":
+        return "Démolition"
+    if d["type"] == "PA":
+        return "Lotissement"
+    m = re.match(r"Changement de destination : (.+?) → (.+?)(?:,| ·|$)", objet)
+    if m:
+        avant, apres = (COURT.get(x, x) for x in m.groups())
+        return f"{avant[0].upper()}{avant[1:]} → {apres}"
+    if n >= 2:
+        return f"{n} logements"
+    if objet.startswith("Agrandissement"):
+        return "Agrandissement"
+    if objet.startswith("Construction neuve"):
+        if n == 1:
+            return "1 maison" if d["type_logements"] == "un logement individuel" else "1 logement"
+        return CONSTRUCTIONS.get(d["destination_principale"], "Construction neuve")
+    return "Travaux"
+
+
+def ampleur(d):
+    nombre = lambda c: float(d[c] or 0)
+    return (nombre("nb_logements_crees"), nombre("surf_habitation_creee") + nombre("surf_non_residentielle_creee"),
+            nombre("surf_habitation_demolie") + nombre("surf_non_residentielle_demolie"))
 
 
 def charger():
@@ -98,21 +147,27 @@ def composer():
         o["pts"] = [(x - ox, y - oy) for x, y in o["pts"]]
     maison["adresse"] = True
 
-    lieux = []
-    for l in PROJETS:
-        lo, hi = l["surface"]
-        p = min((p for p in parcelles if lo <= p["props"]["contenance"] <= hi and not p.get("adresse")
-                 and not p.get("autorisee") and 55 < hypot(*centroide(p["pts"])) < DEMI - 15
-                 and all(hypot(*(a - b for a, b in zip(centroide(p["pts"]), centroide(q["pts"])))) > 45 for q in lieux)),
-                key=lambda p: hypot(*(a - b for a, b in zip(centroide(p["pts"]), l["pos"]))))
-        p["autorisee"] = True
-        lieux.append(p)
-    rng = random.Random(7)
-    autres = [p for p in parcelles if not p.get("autorisee") and not p.get("adresse")
-              and 100 < p["props"]["contenance"] < 2500 and 25 < hypot(*centroide(p["pts"])) < DEMI - 10]
-    for p in rng.sample(autres, AUTRES_AUTORISATIONS):
-        p["autorisee"] = True
-    return parcelles, batiments, lieux
+    # Autorisations accordées depuis DEPUIS sur une parcelle actuelle à moins de DEMI m de l'adresse
+    par_id = {p["props"]["id"]: p for p in parcelles}
+    projets = []
+    for d in json.loads(DOSSIERS.read_text(encoding="utf-8")):
+        ps = [par_id[i] for i in d["actuelles"] if i in par_id]
+        if d["date_autorisation"][:4] < str(DEPUIS) or not ps or min(distance(p["pts"]) for p in ps) > DEMI:
+            continue
+        for p in ps:
+            p["autorisee"] = True
+        projets.append(dict(d=d, parcelle=max(ps, key=lambda p: p["props"]["contenance"]),
+                            distance=min(distance(p["pts"]) for p in ps), libelle=etiquette(d)))
+    projets.sort(key=lambda o: (priorite(o), [-v for v in ampleur(o["d"])]))
+
+    lieux = []  # projets nommés sur le plan : dans l'ordre de priorité, loin les uns des autres, de l'adresse et des bords
+    #             gauche et droit (le libellé, centré sur sa parcelle, fait environ 80 m de large)
+    for o in projets:
+        c = centroide(o["parcelle"]["pts"])
+        if (len(lieux) < LIBELLES_MAX and priorite(o) < 9 and 30 < hypot(*c) and abs(c[0]) < DEMI - 40 and abs(c[1]) < DEMI - 15
+                and all(hypot(c[0] - l["xy"][0], c[1] - l["xy"][1]) > 45 for l in lieux)):
+            lieux.append({**o, "xy": c})
+    return parcelles, batiments, projets, lieux
 
 
 def visible(pts):
@@ -161,20 +216,28 @@ def arc(etat):
             f'text-anchor="middle">{texte}</textPath></text></svg>')
 
 
-def bloc(parcelles, lieux, version):
+def bloc(parcelles, projets, lieux, version):
     nb = sum(1 for p in parcelles if p.get("autorisee"))
-    a_m = lambda libelle: round(hypot(*centroide(lieux[[l["libelle"] for l in PROJETS].index(libelle)]["pts"])) / 10) * 10
-    reponses = [  # tirées des autorisations (fictives) posées sur le plan
-        "Une école, 32 logements,\n4 maisons…",
-        f"Oui : 32 logements\nà {a_m('32 logements')} m",
-        f"{nb} autorisations\nà moins de {DEMI} m",
+    sorte = lambda l: "logements" if l.endswith(" logements") else l  # une seule ligne « N logements » dans la liste
+    vus, liste = set(), []
+    for o in projets:
+        if priorite(o) < 9 and sorte(o["libelle"]) not in vus:
+            vus.add(sorte(o["libelle"]))
+            liste.append(ARTICLES.get(o["libelle"], o["libelle"] if o["libelle"][0].isdigit() else o["libelle"][0].lower() + o["libelle"][1:]))
+    liste = liste[:3]
+    phrase = f"{liste[0][0].upper()}{liste[0][1:]}" + "".join(f",{chr(10) if i == 1 else ' '}{x}" for i, x in enumerate(liste[1:], 1)) + "…"
+    immeuble = min((o for o in projets if float(o["d"]["nb_logements_crees"] or 0) >= 10), key=lambda o: o["distance"], default=None)
+    reponses = [  # tirées des autorisations réelles posées sur le plan
+        phrase,
+        f"Oui : {immeuble['libelle']}\nà {max(10, round(immeuble['distance'] / 10) * 10)} m" if immeuble else f"Aucun recensé\nà moins de {DEMI} m",  # jamais « non » : l'absence de dossier ne prouve rien
+        f"{len(projets)} autorisations\nà moins de {DEMI} m",
     ]
     br = lambda t: t.replace("\n", "<br>")
     paires = "".join(f'\n              <div class="paire" style="--haut:{h}%;--haut-etroit:{he}%;--rang:{i}" '
                      f'data-seuil="{seuil}"><span class="question">{br(q)}</span><span class="reponse">{br(r)}</span></div>'
                      for i, ((q, h, he, seuil), r) in enumerate(zip(QUESTIONS, reponses)))
-    projets = "".join(f'\n              <span class="projet" style="left:{pc(centroide(p["pts"])[0])};'
-                      f'top:{pc(centroide(p["pts"])[1])}">{l["libelle"]}</span>' for l, p in zip(PROJETS, lieux))
+    etiquettes = "".join(f'\n              <span class="projet" style="left:{pc(l["xy"][0])};'
+                         f'top:{pc(l["xy"][1])}">{l["libelle"]}</span>' for l in lieux)
     return f"""<!-- preuve:debut · généré par design/accueil_preuve.py, ne pas modifier à la main -->
         <figure class="preuve" style="--position: 62%">
           <div class="couche avant"><div class="plan">
@@ -182,23 +245,22 @@ def bloc(parcelles, lieux, version):
             {arc("avant")}{paires}
           </div></div>
           <div class="couche apres"><div class="plan">
-            <img class="plan-carte" src="accueil/plan-apres.svg?v={version}" alt="" width="600" height="600">{projets}
+            <img class="plan-carte" src="accueil/plan-apres.svg?v={version}" alt="" width="600" height="600">{etiquettes}
             {arc("apres")}
           </div></div>
           <span class="adresse-plan" aria-hidden="true"><span>Votre adresse</span></span>
           <div class="couture" aria-hidden="true"></div>
           <input class="curseur" type="range" min="2" max="98" step="any" value="62"
                  aria-label="Avant / après : glisser pour révéler les autorisations autour de l'adresse">
-          <figcaption class="sr">Illustration : le plan d'un quartier de Montreuil, 150 m autour d'une adresse.
-            Avant : des questions. Après : {nb} parcelles portant une autorisation fictive, dont une école,
-            32 logements et 4 maisons.</figcaption>
+          <figcaption class="sr">Le plan d'un quartier de Montreuil, {DEMI} m autour d'une maison. Avant : des questions.
+            Après : {len(projets)} autorisations accordées depuis {DEPUIS} sur {nb} parcelles, dont {", ".join(liste)}.</figcaption>
         </figure>
-        <p class="preuve-legende">Illustration · plan réel d'un quartier de Montreuil, autorisations fictives</p>
+        <p class="preuve-legende">Plan réel d'un quartier de Montreuil · autorisations réellement accordées depuis {DEPUIS}</p>
         <!-- preuve:fin -->"""
 
 
 def main():
-    parcelles, batiments, lieux = composer()
+    parcelles, batiments, projets, lieux = composer()
     for etat in ("avant", "apres"):
         (SITE / "accueil" / f"plan-{etat}.svg").write_text(svg(etat, parcelles, batiments), encoding="utf-8")
     index = SITE / "index.html"
@@ -208,9 +270,11 @@ def main():
         raise SystemExit("Repères <!-- preuve:debut --> et <!-- preuve:fin --> introuvables dans site/index.html")
     version = re.search(r'plan-avant\.svg\?v=(\d+)', html)
     version = int(version.group(1)) + 1 if version else 1  # les plans changent : le cache du navigateur aussi
-    index.write_text(motif.sub(lambda _: bloc(parcelles, lieux, version), html), encoding="utf-8")
+    index.write_text(motif.sub(lambda _: bloc(parcelles, projets, lieux, version), html), encoding="utf-8")
     tailles = {f.name: f"{f.stat().st_size // 1024} Ko" for f in sorted((SITE / "accueil").glob("*.svg"))}
-    print(index, tailles, sum(1 for p in parcelles if p.get("autorisee")), "parcelles bleues")
+    print(index, tailles, len(projets), "autorisations,", sum(1 for p in parcelles if p.get("autorisee")), "parcelles bleues")
+    for o in projets:
+        print(f"  {o['distance']:5.0f} m  {o['libelle']:24s} {o['d']['id']}  {o['d']['objet'][:60]}")
 
 
 if __name__ == "__main__":

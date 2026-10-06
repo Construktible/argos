@@ -83,7 +83,7 @@ python3 -m http.server 8765 --directory site     # aperçu local : http://localh
 python3 design/accueil_preuve.py                 # -> site/accueil/plan-{avant,apres}.svg + bloc avant/après de site/index.html
 ```
 
-Accueil : carré avant / après repris d'impeccable.style (plan réel de Montreuil, autorisations **fictives**, la légende le dit). Généré par `design/accueil_preuve.py` à partir du cadastre (`doc_source/cadastre/93048/`, parcelles et `batiments-2026-09-01.json.gz`) ; il remplace le bloc entre `<!-- preuve:debut -->` et `<!-- preuve:fin -->` d'`index.html` : ne pas l'éditer à la main. Script : `site/preuve.js`.
+Accueil : carré avant / après repris d'impeccable.style (plan réel de l'est de Montreuil, parcelle T 190, et **autorisations réelles** accordées depuis 2021 à moins de 150 m, depuis le 6 octobre 2026). Généré par `design/accueil_preuve.py` à partir du cadastre (`doc_source/cadastre/93048/`, parcelles et `batiments-2026-09-01.json.gz`) et de `site/data/93048/dossiers.json` : à relancer après une mise à jour des données ; il remplace le bloc entre `<!-- preuve:debut -->` et `<!-- preuve:fin -->` d'`index.html` : ne pas l'éditer à la main. Script : `site/preuve.js`.
 
 Démonstration de l'accueil (section `#demo`, `app.js` « Accueil : démonstration », 6 octobre 2026) : 4 adresses réelles fixes (Montreuil, Saint-Denis, Ivry, Cachan) et un curseur de rayon 100/200/300/500 m ; nombre, types et 3 plus grands projets comme l'aperçu public, plan SVG des parcelles réelles (bleu = au moins une autorisation). Communes chargées quand la section approche de l'écran (IntersectionObserver).
 
