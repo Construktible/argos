@@ -43,6 +43,7 @@ On garde les noms de variables de `style.css` et on change leurs valeurs.
 ## Typographie
 
 - IBM Plex Sans (400, 500, 600) pour tout le texte.
+- Alumni Sans (300, 500), étroite et fine, pour les seuls grands titres : titre de l'accueil (300), titres de section, de la page d'attente, du rapport et des vues (500). Corps plus grand qu'en Plex (environ 1,4 fois). Choix du 6 octobre 2026 (version « mixte » : caractère d'impeccable.style dans les titres, Plex pour la lecture et le registre).
 - IBM Plex Mono (400, 500) pour ce qui relève du registre : n° de dossier, références cadastrales, distances, codes de type, date de mise à jour.
 - **Auto-hébergées** en woff2 dans `site/fonts/` : la CSP impose `font-src 'self'`, Google Fonts serait bloqué.
 - Titres : graisse 600, interlettrage négatif (−0,015 à −0,025 em).

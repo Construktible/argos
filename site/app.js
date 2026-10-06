@@ -1063,7 +1063,19 @@ function estBeta() {
   try { return localStorage.getItem(CLE_BETA) === "1"; } catch { return false; }  // stockage bloqué : pas d'accès bêta
 }
 
-function htmlApercu(v) {  // nombre d'autorisations de la période par défaut et répartition par type, sans aucun détail
+function extraitsProjets(liste, n = 3) {  // objets des plus grands projets, sans adresse ni date ; un même objet n'est cité qu'une fois
+  const vus = new Set(), extraits = [];
+  for (const d of [...liste].sort(TRIS.ampleur.ordre)) {
+    const objet = projet(d);
+    if (!objet || d.etat === "annulé" || vus.has(objet)) continue;
+    vus.add(objet);
+    extraits.push(d);
+    if (extraits.length === n) break;
+  }
+  return extraits;
+}
+
+function htmlApercu(v) {  // nombre d'autorisations de la période par défaut, répartition par type, objet de quelques projets
   let liste, ou, lieu;
   const insee = v.mode === "commune" ? v.insee : v.mode === "parcelle" && !toutes.has(v.id) ? v.id.slice(0, 5) : null;
   if (insee !== null && !infoCommune.has(insee)) return `<h2 id="apercu-titre" tabindex="-1">Choisissez une commune</h2>${listeCommunes()}`;
@@ -1079,12 +1091,19 @@ function htmlApercu(v) {  // nombre d'autorisations de la période par défaut e
   }
   const parType = Object.fromEntries(ORDRE_TYPES.map(t => [t, liste.filter(d => d.type === t).length]));
   const types = ORDRE_TYPES.filter(t => parType[t]).map(t => `<li>${sigleType(t)}<span>${nombre.format(parType[t])}</span></li>`).join("");
+  const extraits = extraitsProjets(liste);
   return `
+    <p class="apercu-intro">Argos est en cours de développement. Mais nous pouvons déjà vous dire ce que les autorisations
+      d'urbanisme recensent ici.</p>
     <h2 id="apercu-titre" tabindex="-1">${liste.length ? pluriel(liste.length, "autorisation") : "Aucune autorisation recensée"} ${ou} depuis ${etat.depuis}</h2>
     <p class="apercu-lieu">${esc(lieu)}</p>
     ${types ? `<ul class="apercu-types" aria-label="Par type">${types}</ul>` : ""}
+    ${extraits.length ? `<div class="apercu-extraits">
+      <p>${extraits.length > 1 ? `Les ${extraits.length} plus grands projets` : "Le projet"} :</p>
+      <ul>${extraits.map(d => `<li>${sigleType(d.type)}<span>${esc(projet(d))}</span></li>`).join("")}</ul>
+    </div>` : ""}
     <p class="apercu-note">Seules les autorisations accordées sont recensées${liste.length ? "" : " : leur absence ne garantit pas qu'aucun projet ne viendra"}.
-      Le détail (adresses, projets, carte et rapport imprimable) sera ouvert à tous prochainement.</p>`;
+      Adresses, dates, carte et rapport imprimable ouvriront à tous prochainement.</p>`;
 }
 
 function montrerApercu(chargement = false) {  // page de la liste d'attente, à la place des résultats
